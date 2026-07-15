@@ -6,8 +6,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
 
 export const metadata: Metadata = {
-  title: 'Safe City Lahore | Green Corridor HQ',
-  description: 'Emergency Ambulance Routing & Hospital Readiness System',
+  title: 'Green Corridor — Emergency Operations',
+  description: 'Mass Casualty & Ambulance Routing Command System',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

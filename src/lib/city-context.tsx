@@ -6,19 +6,25 @@ import { City, fetchCities, getSelectedCityId, getStoredUser, setSelectedCityId 
 export function useCityContext() {
   const user = getStoredUser();
   const [cities, setCities] = useState<City[]>([]);
-  const [cityId, setCityId] = useState<string | null>(null);
+  const initialCityId = getSelectedCityId() || user?.cityId || null;
+  const [cityId, setCityId] = useState<string | null>(initialCityId);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCities()
       .then((list) => {
         setCities(list);
-        const stored = getSelectedCityId() || user?.cityId;
-        const validStored = stored && list.some((c) => c.id === stored) ? stored : null;
-        const resolved = validStored ?? list[0]?.id ?? null;
-        if (resolved) {
+        if (!cityId && list.length > 0) {
+          const resolved = list[0].id;
           setCityId(resolved);
           setSelectedCityId(resolved);
+        } else if (cityId && !list.some((c) => c.id === cityId)) {
+          // If stored city is invalid, reset it
+          const resolved = list[0]?.id || null;
+          if (resolved) {
+             setCityId(resolved);
+             setSelectedCityId(resolved);
+          }
         }
       })
       .catch(() => setCities([]))

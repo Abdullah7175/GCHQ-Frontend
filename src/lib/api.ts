@@ -69,8 +69,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
         ...options.headers,
       },
     });
-  } catch {
-    throw new Error(`Cannot reach API at ${API_URL}. Is the backend running on port 3001?`);
+  } catch (e: any) {
+    console.error('Fetch error:', e);
+    throw new Error(`Cannot reach API at ${API_URL}. Is the backend running on port 3001? (Error: ${e.message})`);
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
@@ -107,8 +108,8 @@ export function getStoredUser(): AuthUser | null {
 
 export const roleRoutes: Record<UserRole, string> = {
   hospital: '/hospital',
-  safe_city: '/safe-city',
-  hq_1122: '/hq',
+  safe_city: '/hq',
+  hq_1122: '/safe-city',
   vvip: '/vvip',
   paramedic: '/driver',
   admin: '/admin',

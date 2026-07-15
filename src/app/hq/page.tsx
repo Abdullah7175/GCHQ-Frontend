@@ -50,7 +50,6 @@ function EmergencyCard({
   transit,
   onClaim,
   claiming,
-  isOverseer,
   myId,
   busyGuiding,
   selected,
@@ -59,7 +58,6 @@ function EmergencyCard({
   transit: Transit;
   onClaim: (id: string) => void;
   claiming: string | null;
-  isOverseer: boolean;
   myId?: string;
   busyGuiding: boolean;
   selected?: boolean;
@@ -100,17 +98,19 @@ function EmergencyCard({
             {mine ? 'YOU GUIDING' : `CSR: ${transit.claimedBy.name}`}
           </span>
         ) : (
-          !isOverseer && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onClaim(transit.id); }}
-              disabled={claiming === transit.id || busyGuiding}
-              title={busyGuiding ? 'Finish or close your current guidance first' : undefined}
-              className="px-3 py-1 rounded bg-primary text-white text-[10px] font-bold disabled:opacity-40"
-            >
-              {claiming === transit.id ? '...' : busyGuiding ? 'BUSY' : 'CLAIM & GUIDE'}
-            </button>
-          )
+          <button
+            onClick={(e) => { e.stopPropagation(); onClaim(transit.id); }}
+            disabled={!!claiming || busyGuiding}
+            className={`px-3 py-1 rounded text-xs font-bold transition-all ml-auto ${
+              claiming === transit.id
+                ? 'bg-primary/50 text-white cursor-wait'
+                : busyGuiding
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : 'bg-primary text-white hover:bg-primary/90 shadow-sm'
+            }`}
+          >
+            {claiming === transit.id ? 'CLAIMING...' : 'GUIDE AMBULANCE'}
+          </button>
         )}
         {selected && (
           <span className="px-2 py-0.5 bg-primary text-white rounded text-[10px] font-bold">MAP FOCUSED</span>
@@ -123,7 +123,7 @@ function EmergencyCard({
 const selectClass = 'border border-outline-variant rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-primary min-w-[120px]';
 
 export default function HqDashboard() {
-  const { user, ready } = useAuthGuard('hq_1122');
+  const { user, ready } = useAuthGuard('safe_city');
   const { cityId, loading: cityLoading } = useCityContext();
   const [data, setData] = useState<HqData | null>(null);
   const [error, setError] = useState('');
@@ -234,11 +234,10 @@ export default function HqDashboard() {
   }
 
   const meId = me?.id;
-  const isOverseerPreview = data?.isCityOverseer || me?.role === 'admin';
   const myGuided = data?.activeTransits.find((t) => t.id === guidingId)
     ?? data?.activeTransits.find((t) => t.claimedById === meId)
     ?? null;
-  const busyGuiding = !!(guidingId || myGuided) && !isOverseerPreview && !!myGuided
+  const busyGuiding = !!(guidingId || myGuided) && !!myGuided
     && (myGuided.status === 'en_route' || myGuided.status === 'pending' || myGuided.status === 'arrived');
 
   const filterOptions = useMemo(() => {
@@ -300,7 +299,7 @@ export default function HqDashboard() {
   }
   if (!data) return null;
 
-  const isOverseer = !!isOverseerPreview;
+  const isOverseer = !!data.isCityOverseer;
   const roleLabel = isOverseer ? 'City Overseer' : `Sector CSR${me?.sector?.name ? ` · ${me.sector.name}` : ''}`;
 
   const listForPanel = busyGuiding && myGuided ? [myGuided] : filteredTransits;
@@ -467,10 +466,10 @@ export default function HqDashboard() {
 
           {busyGuiding && myGuided && (
             <div className="absolute top-4 left-4 z-40 max-w-sm bg-white/95 backdrop-blur border border-primary rounded-xl shadow-lg p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-error rounded-full severity-pulse" />
-                <span className="text-xs font-bold uppercase text-primary">Guiding session</span>
-              </div>
+                <div className="flex flex-col">
+                  <p className="text-[9px] font-extrabold text-primary uppercase tracking-wider">Safe City</p>
+                  <p className="text-xs font-bold text-slate-800">Traffic Controller</p>
+                </div>
               <div>
                 <p className="font-mono font-bold text-lg">{myGuided.transitId}</p>
                 <p className="text-sm">Unit <strong>{myGuided.ambulance.unitNumber}</strong> → {myGuided.hospital.name}</p>
@@ -506,7 +505,6 @@ export default function HqDashboard() {
                   transit={t}
                   onClaim={claim}
                   claiming={claiming}
-                  isOverseer={!!isOverseer}
                   myId={me?.id}
                   busyGuiding={busyGuiding}
                   selected={selectedId === t.id || (busyGuiding && myGuided?.id === t.id)}

@@ -18,6 +18,26 @@ export function buildDemoRoute(
   return points;
 }
 
+export async function getLiveRoute(
+  from: [number, number],
+  to: [number, number],
+): Promise<[number, number][]> {
+  try {
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`
+    );
+    if (!res.ok) throw new Error('OSRM routing request failed');
+    const data = await res.json();
+    if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+      // Convert OSRM [lng, lat] back to Leaflet [lat, lng]
+      return data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+    }
+  } catch (err) {
+    console.warn('OSRM public API error, falling back to Bezier estimation', err);
+  }
+  return buildDemoRoute(from, to);
+}
+
 export function interpolateRouteProgress(route: [number, number][], progress: number): [number, number] {
   if (route.length === 0) return [0, 0];
   if (progress <= 0) return route[0];
@@ -29,3 +49,4 @@ export function interpolateRouteProgress(route: [number, number][], progress: nu
   const b = route[Math.min(i + 1, route.length - 1)];
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
 }
+

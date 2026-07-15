@@ -5,6 +5,7 @@ import { TopNav, StatCard } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
 import { useAuthGuard, useSocket } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface VvipData {
   operationsTable: {
@@ -27,7 +28,10 @@ interface VvipData {
   providerTrips: { provider: string; code: string; shape: string; color: string; count: string }[];
   hospitalLoad: { hospital: string; count: string }[];
   hospitalEmergencies: { hospital: string; emergencyType: string; code: string; count: string }[];
+  sectorEmergencies: { sectorName: string; emergencyType: string; code: string; count: string }[];
 }
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ffc658', '#d0ed57', '#a4de6c'];
 
 export default function VvipDashboard() {
   const { ready } = useAuthGuard('vvip');
@@ -77,7 +81,6 @@ export default function VvipDashboard() {
                 <tr className="bg-surface-container-low text-on-surface-variant uppercase text-[10px] tracking-widest">
                   <th className="px-4 py-3">Transit ID</th>
                   <th className="px-4 py-3">Provider</th>
-                  <th className="px-4 py-3">Destination</th>
                   <th className="px-4 py-3">Emergency</th>
                   <th className="px-4 py-3">Triage</th>
                   <th className="px-4 py-3">Sector</th>
@@ -90,7 +93,6 @@ export default function VvipDashboard() {
                   <tr key={op.transitId} className="hover:bg-surface-container-low/50">
                     <td className="px-4 py-3 font-mono font-bold text-primary">{op.transitId}</td>
                     <td className="px-4 py-3">{op.provider}</td>
-                    <td className="px-4 py-3">{op.destination}</td>
                     <td className="px-4 py-3">{op.emergencyType}</td>
                     <td className="px-4 py-3">{op.triageLevel}</td>
                     <td className="px-4 py-3">{op.sector}</td>
@@ -144,6 +146,33 @@ export default function VvipDashboard() {
             </div>
           </section>
         </div>
+
+        <section className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Incident Types by Sector</h3>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data.sectorEmergencies}
+                  dataKey="count"
+                  nameKey="sectorName"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={120}
+                  paddingAngle={5}
+                  label={({ payload }: any) => `${payload.sectorName}: ${payload.emergencyType}`}
+                >
+                  {data.sectorEmergencies.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name, props) => [value, props.payload.emergencyType]} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
 
         <section className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Emergency Types by Hospital (Today)</h3>

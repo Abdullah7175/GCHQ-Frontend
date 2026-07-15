@@ -5,110 +5,169 @@ import { logout, getStoredUser } from '@/lib/api';
 import { CitySelector } from '@/components/CitySelector';
 import { useCityContext } from '@/lib/city-context';
 
-const navItems = [
-  { href: '/hq', label: '1122 HQ' },
-  { href: '/safe-city', label: 'Safe City' },
-  { href: '/hospital', label: 'Hospital ER' },
-  { href: '/vvip', label: 'VVIP' },
-];
+// Each role maps to exactly ONE portal — no cross-portal navigation
+const ROLE_PORTAL: Record<string, { label: string; icon: string; href: string }> = {
+  admin:      { label: 'System Admin',    icon: 'settings',        href: '/admin' },
+  hq_1122:    { label: '1122 HQ Ops',     icon: 'hub',             href: '/safe-city' },
+  safe_city:  { label: 'Safe City Ctrl',  icon: 'traffic',         href: '/hq' },
+  hospital:   { label: 'Hospital ER',     icon: 'local_hospital',  href: '/hospital' },
+  paramedic:  { label: 'Paramedic App',   icon: 'ambulance',       href: '/driver' },
+  vvip:       { label: 'VVIP Command',    icon: 'shield_person',   href: '/vvip' },
+};
 
 export function TopNav({ active }: { active?: string }) {
   const user = getStoredUser();
-  const isAdmin = user?.role === 'admin';
   const { cities, cityId, selectCity, canSwitchCity } = useCityContext();
-
-  const linkClass = (href: string) =>
-    active === href
-      ? 'text-primary font-bold border-b-2 border-primary pb-1'
-      : 'text-on-surface-variant font-medium hover:bg-surface-container-low px-3 py-1 rounded';
+  const portal = user?.role ? ROLE_PORTAL[user.role] : null;
 
   return (
-    <header className="flex justify-between items-center w-full px-6 h-16 bg-surface-container-lowest border-b border-outline-variant fixed top-0 z-50">
-      <div className="flex items-center gap-6">
-        {isAdmin ? (
-          <Link href="/admin" className="text-2xl font-extrabold text-primary tracking-tighter hover:opacity-80">
-            Safe City Lahore
-          </Link>
-        ) : (
-          <span className="text-2xl font-extrabold text-primary tracking-tighter">Safe City Lahore</span>
-        )}
-        <nav className="hidden md:flex items-center gap-4">
-          {isAdmin && (
-            <Link href="/admin" className={linkClass('/admin')}>
-              Admin
-            </Link>
-          )}
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className={linkClass(item.href)}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
-      <div className="flex items-center gap-4">
-        {isAdmin && (
-          <Link
-            href="/admin"
-            className={`md:hidden flex items-center gap-1 text-sm px-3 py-1.5 rounded border ${
-              active === '/admin'
-                ? 'bg-primary text-white border-primary'
-                : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-low'
-            }`}
+    <header
+      className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center"
+      style={{
+        background: '#ffffff',
+        borderBottom: '1px solid #e5e7eb',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      }}
+    >
+      <div className="w-full max-w-screen-2xl mx-auto px-5 flex items-center justify-between gap-4">
+
+        {/* Logo + current portal only */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: '#16a34a' }}
           >
-            <span className="material-symbols-outlined text-[18px]">settings</span>
-            Admin
-          </Link>
-        )}
-        {canSwitchCity && cities.length > 0 && (
-          <CitySelector cities={cities} cityId={cityId} onChange={selectCity} />
-        )}
-        <span className="text-sm text-on-surface-variant hidden sm:block">{user?.name}</span>
-        <button
-          onClick={() => { logout(); window.location.href = '/login'; }}
-          className="text-sm text-on-surface-variant hover:text-error px-3 py-1 rounded hover:bg-surface-container-low"
-        >
-          Logout
-        </button>
+            <span
+              className="material-symbols-outlined text-white"
+              style={{ fontSize: 17, fontVariationSettings: "'FILL' 1" }}
+            >
+              emergency
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-900 tracking-tight">Green Corridor</span>
+            {portal && (
+              <>
+                <span className="text-gray-300 font-light">/</span>
+                <span
+                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md"
+                  style={{ background: '#f0fdf4', color: '#15803d' }}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 13, fontVariationSettings: "'FILL' 1" }}
+                  >
+                    {portal.icon}
+                  </span>
+                  {portal.label}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Right side */}
+        <div className="flex items-center gap-2">
+          {canSwitchCity && cities.length > 0 && (
+            <CitySelector cities={cities} cityId={cityId} onChange={selectCity} />
+          )}
+          <div
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}
+          >
+            <div
+              className="w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ background: '#dcfce7' }}
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 11, color: '#15803d', fontVariationSettings: "'FILL' 1" }}
+              >
+                person
+              </span>
+            </div>
+            <span className="text-xs font-medium text-gray-700">{user?.name}</span>
+            <span
+              className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
+              style={{ background: '#f0fdf4', color: '#15803d' }}
+            >
+              {user?.role?.replace('_', ' ')}
+            </span>
+          </div>
+          <button
+            onClick={() => { logout(); window.location.href = '/login'; }}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-red-600 px-3 py-1.5 rounded-lg transition-colors"
+            style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>logout</span>
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
   );
 }
 
+/* ── StatCard ──────────────────────────────────────────────────────────────── */
 export function StatCard({
   label,
   value,
   suffix,
   accent = 'primary',
+  icon,
 }: {
   label: string;
   value: string | number;
   suffix?: string;
   accent?: 'primary' | 'tertiary' | 'error' | 'secondary';
+  icon?: string;
 }) {
-  const borderColors = {
-    primary: 'border-primary',
-    tertiary: 'border-tertiary',
-    error: 'border-error',
-    secondary: 'border-secondary-container',
+  const styles = {
+    primary:   { bg: '#f0fdf4', text: '#15803d', icon_bg: '#dcfce7', border: '#bbf7d0' },
+    tertiary:  { bg: '#eff6ff', text: '#1d4ed8', icon_bg: '#dbeafe', border: '#93c5fd' },
+    error:     { bg: '#fef2f2', text: '#991b1b', icon_bg: '#fee2e2', border: '#fca5a5' },
+    secondary: { bg: '#fffbeb', text: '#92400e', icon_bg: '#fef3c7', border: '#fcd34d' },
   };
-  const textColors = {
-    primary: 'text-primary',
-    tertiary: 'text-tertiary',
-    error: 'text-error',
-    secondary: 'text-secondary-container',
-  };
+  const s = styles[accent];
 
   return (
-    <div className={`bg-surface-container-lowest p-5 border-l-4 ${borderColors[accent]} rounded shadow-sm`}>
-      <p className="text-xs font-bold uppercase text-on-surface-variant mb-1">{label}</p>
-      <div className="flex items-baseline gap-2">
-        <span className={`text-3xl font-mono font-semibold ${textColors[accent]}`}>{value}</span>
-        {suffix && <span className="text-sm text-on-surface-variant">{suffix}</span>}
+    <div
+      className="rounded-xl p-5"
+      style={{
+        background: '#ffffff',
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+      }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+        {icon && (
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: s.icon_bg }}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: 16, color: s.text, fontVariationSettings: "'FILL' 1" }}
+            >
+              {icon}
+            </span>
+          </div>
+        )}
       </div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-3xl font-black font-mono" style={{ color: s.text }}>{value}</span>
+        {suffix && <span className="text-xs text-gray-400 font-medium">{suffix}</span>}
+      </div>
+      <div
+        className="mt-3 h-0.5 rounded-full"
+        style={{ background: s.border }}
+      />
     </div>
   );
 }
 
+/* ── ProviderMarker ────────────────────────────────────────────────────────── */
 export function ProviderMarker({ shape, color, size = 12 }: { shape: string; color: string; size?: number }) {
   if (shape === 'triangle') {
     return (
@@ -118,40 +177,23 @@ export function ProviderMarker({ shape, color, size = 12 }: { shape: string; col
       />
     );
   }
-  if (shape === 'square') {
-    return <div style={{ backgroundColor: color, width: size * 1.5, height: size * 1.5 }} />;
-  }
-  if (shape === 'diamond') {
-    return <div style={{ backgroundColor: color, width: size * 1.2, height: size * 1.2 }} className="rotate-45" />;
-  }
-  if (shape === 'star') {
-    return (
-      <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-        <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9" fill={color} />
-      </svg>
-    );
-  }
-  if (shape === 'hexagon') {
-    return (
-      <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-        <polygon points="12,2 20,7 20,17 12,22 4,17 4,7" fill={color} />
-      </svg>
-    );
-  }
-  if (shape === 'pentagon') {
-    return (
-      <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-        <polygon points="12,2 21,9 17,21 7,21 3,9" fill={color} />
-      </svg>
-    );
-  }
-  if (shape === 'cross') {
-    return (
-      <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-        <rect x="9" y="3" width="6" height="18" fill={color} />
-        <rect x="3" y="9" width="18" height="6" fill={color} />
-      </svg>
-    );
-  }
+  if (shape === 'square')  return <div style={{ backgroundColor: color, width: size * 1.5, height: size * 1.5 }} className="rounded-sm" />;
+  if (shape === 'diamond') return <div style={{ backgroundColor: color, width: size * 1.2, height: size * 1.2 }} className="rotate-45" />;
+  if (shape === 'star') return (
+    <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
+      <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9" fill={color} />
+    </svg>
+  );
+  if (shape === 'hexagon') return (
+    <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
+      <polygon points="12,2 20,7 20,17 12,22 4,17 4,7" fill={color} />
+    </svg>
+  );
+  if (shape === 'cross') return (
+    <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
+      <rect x="9" y="3" width="6" height="18" fill={color} />
+      <rect x="3" y="9" width="18" height="6" fill={color} />
+    </svg>
+  );
   return <div style={{ backgroundColor: color, width: size, height: size }} className="rounded-full" />;
 }

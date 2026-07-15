@@ -3,14 +3,14 @@
 import { ProviderMarker } from '@/components/ui';
 
 export const PROVIDER_SHAPES = [
-  { value: 'circle', label: 'Circle' },
+  { value: 'circle',   label: 'Circle' },
   { value: 'triangle', label: 'Triangle' },
-  { value: 'square', label: 'Square' },
-  { value: 'diamond', label: 'Diamond' },
-  { value: 'star', label: 'Star' },
-  { value: 'hexagon', label: 'Hexagon' },
+  { value: 'square',   label: 'Square' },
+  { value: 'diamond',  label: 'Diamond' },
+  { value: 'star',     label: 'Star' },
+  { value: 'hexagon',  label: 'Hexagon' },
   { value: 'pentagon', label: 'Pentagon' },
-  { value: 'cross', label: 'Cross' },
+  { value: 'cross',    label: 'Cross' },
 ] as const;
 
 export const FLEET_COLOR_PRESETS = [
@@ -20,8 +20,8 @@ export const FLEET_COLOR_PRESETS = [
 ];
 
 export const GRID_STATUS_OPTIONS = [
-  { value: 'flowing', label: 'Flowing — traffic moving well' },
-  { value: 'moderate', label: 'Moderate — some congestion' },
+  { value: 'flowing',    label: 'Flowing — traffic moving well' },
+  { value: 'moderate',   label: 'Moderate — some congestion' },
   { value: 'saturating', label: 'Saturating — heavy traffic' },
   { value: 'gridlocked', label: 'Gridlocked — standstill' },
 ];
@@ -42,51 +42,38 @@ export const TRIAGE_PRIORITY_OPTIONS = [
 
 export const AMBULANCE_STATUS_OPTIONS = [
   { value: 'available', label: 'Available' },
-  { value: 'en_route', label: 'En Route' },
-  { value: 'busy', label: 'Busy at Hospital' },
-  { value: 'offline', label: 'Offline' },
+  { value: 'en_route',  label: 'En Route' },
+  { value: 'busy',      label: 'Busy at Hospital' },
+  { value: 'offline',   label: 'Offline' },
 ];
 
 export const USER_ROLE_OPTIONS = [
-  { value: 'admin', label: 'System Admin' },
-  { value: 'hq_1122', label: '1122 HQ Supervisor' },
-  { value: 'safe_city', label: 'Safe City Controller' },
-  { value: 'hospital', label: 'Hospital ER Staff' },
-  { value: 'paramedic', label: 'Paramedic / Driver' },
-  { value: 'vvip', label: 'VVIP Command' },
+  { value: 'admin',      label: 'System Admin' },
+  { value: 'hq_1122',   label: '1122 HQ Supervisor' },
+  { value: 'safe_city',  label: 'Safe City Controller' },
+  { value: 'hospital',   label: 'Hospital ER Staff' },
+  { value: 'paramedic',  label: 'Paramedic / Driver' },
+  { value: 'vvip',       label: 'VVIP Command' },
 ];
 
 export function FormField({
-  label,
-  hint,
-  required,
-  children,
+  label, hint, required, children,
 }: {
-  label: string;
-  hint?: string;
-  required?: boolean;
-  children: React.ReactNode;
+  label: string; hint?: string; required?: boolean; children: React.ReactNode;
 }) {
   return (
-    <label className="block space-y-1">
-      <span className="text-xs font-bold uppercase text-on-surface-variant">
-        {label}{required && ' *'}
+    <label className="block space-y-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center gap-1">
+        {label}{required && <span className="text-red-500">*</span>}
       </span>
       {children}
-      {hint && <span className="text-[11px] text-on-surface-variant block">{hint}</span>}
+      {hint && <span className="text-[11px] text-gray-400 block leading-snug">{hint}</span>}
     </label>
   );
 }
 
-const inputClass = 'w-full border border-outline-variant rounded-lg px-3 py-2 text-sm bg-white focus:border-primary focus:outline-none';
-
 export function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  required,
-  step,
+  value, onChange, placeholder, type = 'text', required, step,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -103,17 +90,14 @@ export function TextInput({
       placeholder={placeholder}
       required={required}
       onChange={(e) => onChange(e.target.value)}
-      className={inputClass}
+      className="neo-input"
+      style={{ fontFamily: type === 'number' ? 'var(--font-jetbrains), monospace' : undefined }}
     />
   );
 }
 
 export function SelectInput({
-  value,
-  onChange,
-  options,
-  placeholder,
-  required,
+  value, onChange, options, placeholder, required,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -126,7 +110,7 @@ export function SelectInput({
       value={value}
       required={required}
       onChange={(e) => onChange(e.target.value)}
-      className={inputClass}
+      className="neo-input cursor-pointer"
     >
       {placeholder && <option value="">{placeholder}</option>}
       {options.map((o) => (
@@ -137,22 +121,18 @@ export function SelectInput({
 }
 
 export function ColorPicker({
-  value,
-  onChange,
-  label = 'Color',
+  value, onChange, label = 'Color',
 }: {
-  value: string;
-  onChange: (color: string) => void;
-  label?: string;
+  value: string; onChange: (color: string) => void; label?: string;
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <input
           type="color"
           value={value || '#d93343'}
           onChange={(e) => onChange(e.target.value)}
-          className="w-12 h-10 rounded border border-outline-variant cursor-pointer p-0.5 bg-white"
+          className="w-10 h-10 rounded-xl cursor-pointer p-0.5 neo-inset border-0"
           title={label}
         />
         <input
@@ -160,9 +140,10 @@ export function ColorPicker({
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder="#d93343"
-          className={`${inputClass} flex-1 font-mono`}
+          className="neo-input flex-1 font-mono text-xs"
         />
-        <div className="w-8 h-8 rounded-full border-2 border-white shadow" style={{ backgroundColor: value || '#d93343' }} />
+        <div className="w-8 h-8 rounded-full shrink-0"
+          style={{ backgroundColor: value || '#d93343', boxShadow: '2px 2px 6px rgba(0,0,0,0.15)' }} />
       </div>
       <div className="flex flex-wrap gap-1.5">
         {FLEET_COLOR_PRESETS.map((c) => (
@@ -170,8 +151,8 @@ export function ColorPicker({
             key={c}
             type="button"
             onClick={() => onChange(c)}
-            className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${value === c ? 'border-primary ring-2 ring-primary/30' : 'border-white shadow'}`}
-            style={{ backgroundColor: c }}
+            className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${value === c ? 'ring-2 ring-green-600 ring-offset-1' : ''}`}
+            style={{ backgroundColor: c, boxShadow: '1px 1px 4px rgba(0,0,0,0.2)' }}
             title={c}
           />
         ))}
@@ -181,13 +162,9 @@ export function ColorPicker({
 }
 
 export function ShapePicker({
-  value,
-  color,
-  onChange,
+  value, color, onChange,
 }: {
-  value: string;
-  color: string;
-  onChange: (shape: string) => void;
+  value: string; color: string; onChange: (shape: string) => void;
 }) {
   return (
     <div className="grid grid-cols-4 gap-2">
@@ -196,12 +173,12 @@ export function ShapePicker({
           key={s.value}
           type="button"
           onClick={() => onChange(s.value)}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
-            value === s.value ? 'border-primary bg-primary-container/10' : 'border-outline-variant hover:bg-surface-container-low'
+          className={`flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all ${
+            value === s.value ? 'neo-inset' : 'neo-btn'
           }`}
         >
           <ProviderMarker shape={s.value} color={color || '#d93343'} size={14} />
-          <span className="text-[10px] text-on-surface-variant">{s.label}</span>
+          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">{s.label}</span>
         </button>
       ))}
     </div>
@@ -210,8 +187,11 @@ export function ShapePicker({
 
 export function InfoBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface-container-low border border-outline-variant rounded-lg p-3 text-xs text-on-surface-variant space-y-1">
-      <p className="font-bold text-primary uppercase tracking-wide">{title}</p>
+    <div className="neo-inset rounded-xl p-4 text-xs text-gray-600 space-y-1">
+      <p className="font-bold text-green-700 uppercase tracking-widest text-[10px] flex items-center gap-1 mb-2">
+        <span className="material-symbols-outlined text-[12px]">info</span>
+        {title}
+      </p>
       {children}
     </div>
   );
