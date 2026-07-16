@@ -12,6 +12,7 @@ import {
   AMBULANCE_STATUS_OPTIONS, USER_ROLE_OPTIONS,
 } from '@/components/admin/form-primitives';
 import { useAdminStore } from '@/lib/store/useAdminStore';
+import { getAdminColumns } from '@/lib/admin-table-columns';
 
 type Entity = Record<string, unknown>;
 
@@ -24,14 +25,14 @@ interface RefData {
 }
 
 const RESOURCES = [
-  { key: 'cities',          label: 'Cities',          icon: 'location_city',   step: 1, hint: 'Define operational cities first' },
-  { key: 'providers',       label: 'Fleet Providers', icon: 'corporate_fare',  step: 2, hint: 'Ambulance fleets (1122, Edhi…)' },
-  { key: 'sectors',         label: 'Sectors',         icon: 'grid_4x4',        step: 3, hint: 'Traffic zones within a city' },
-  { key: 'hospitals',       label: 'Hospitals',       icon: 'local_hospital',  step: 4, hint: 'ER destinations with GPS coords' },
-  { key: 'emergency-types', label: 'Emergency Types', icon: 'emergency',       step: 5, hint: 'Clinical categories with severity' },
-  { key: 'triage-codes',    label: 'Triage Codes',    icon: 'label',           step: 6, hint: 'Priority codes (Code Red, etc.)' },
-  { key: 'users',           label: 'Users',           icon: 'group',           step: 7, hint: 'Staff accounts by role' },
-  { key: 'ambulances',      label: 'Ambulances',      icon: 'ambulance',       step: 8, hint: 'Register units & assign drivers' },
+  { key: 'cities',          label: 'Cities',          icon: 'location_city',   hint: 'Define operational cities first' },
+  { key: 'providers',       label: 'Fleet Providers', icon: 'corporate_fare',  hint: 'Ambulance fleets (1122, Edhi…)' },
+  { key: 'sectors',         label: 'Sectors',         icon: 'grid_4x4',        hint: 'Traffic zones within a city' },
+  { key: 'hospitals',       label: 'Hospitals',       icon: 'local_hospital',  hint: 'ER destinations with GPS coords' },
+  { key: 'emergency-types', label: 'Emergency Types', icon: 'emergency',       hint: 'Clinical categories with severity' },
+  { key: 'triage-codes',    label: 'Triage Codes',    icon: 'label',           hint: 'Priority codes (Code Red, etc.)' },
+  { key: 'users',           label: 'Users',           icon: 'group',           hint: 'Staff accounts by role' },
+  { key: 'ambulances',      label: 'Ambulances',      icon: 'ambulance',       hint: 'Register units & assign drivers' },
 ];
 
 const CITY_SCOPED = ['hospitals', 'sectors', 'ambulances'];
@@ -57,7 +58,10 @@ function getCityConfig(form: Entity): CityOperationalConfig {
 
 // Render a cell value intelligently
 function CellValue({ col, value }: { col: string; value: unknown }) {
-  const str = String(value ?? '');
+  if (value == null || value === '') {
+    return <span className="text-gray-400">—</span>;
+  }
+  const str = String(value);
   if (col === 'color' && str.startsWith('#')) {
     return (
       <div className="flex items-center gap-2">
@@ -78,8 +82,8 @@ function CellValue({ col, value }: { col: string; value: unknown }) {
     const colors = ['', 'pill-red', 'pill-amber', 'pill-green', 'pill-grey'];
     return <span className={`pill ${colors[Number(str)] || 'pill-grey'}`}>P{str}</span>;
   }
-  if (col === 'id' || col === 'code' || col === 'unitNumber') {
-    return <span className="font-mono text-[11px] text-gray-500">{str.slice(0, 28)}</span>;
+  if (col === 'code' || col === 'unitNumber') {
+    return <span className="font-mono text-[11px] text-gray-500">{str}</span>;
   }
   return <span className="text-gray-800">{str.slice(0, 40)}{str.length > 40 ? '…' : ''}</span>;
 }
@@ -92,7 +96,6 @@ export default function AdminPage() {
     setActiveResource, setForm, setEditingId, setFormOpen, setPage, setLimit, setRefs, fetchItems, resetForm
   } = useAdminStore();
 
-  const [demoMsg, setDemoMsg]     = useState('');
   const [saveError, setSaveError] = useState('');
   const [loadError, setLoadError] = useState('');
 
@@ -100,24 +103,31 @@ export default function AdminPage() {
 
   const loadRefs = useCallback(async () => {
     const cities = await fetchAllCities();
-    const [providers, users] = await Promise.all([api<Entity[]>('/providers'), api<Entity[]>('/users')]);
-    const scopedCity = formCityId || navCityId || cities[0]?.id;
-    const [hospitals, sectors] = scopedCity
-      ? await Promise.all([api<Entity[]>(`/hospitals${cityQuery(scopedCity)}`), api<Entity[]>(`/sectors${cityQuery(scopedCity)}`)])
-      : [[], []];
-    setRefs({ cities, providers, hospitals, sectors, paramedics: users.filter((u) => u.role === 'paramedic') } as any);
+    const [providers, users, hospitals, sectors] = await Promise.all([
+      api<Entity[]>('/providers'),
+      api<Entity[]>('/users'),
+      api<Entity[]>('/hospitals'),
+      api<Entity[]>('/sectors'),
+    ]);
+    setRefs({
+      cities,
+      providers,
+      hospitals,
+      sectors,
+      paramedics: users.filter((u) => u.role === 'paramedic'),
+    } as RefData);
     return cities;
-  }, [formCityId, navCityId, setRefs]);
+  }, [setRefs]);
 
   const refreshAll = useCallback(async () => {
     if (!ready) return;
     setLoadError('');
     try { 
       await loadRefs(); 
-      await fetchItems(formCityId || navCityId || '', CITY_SCOPED.includes(active)); 
+      await fetchItems(null, false); 
     }
     catch (err) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); }
-  }, [ready, loadRefs, fetchItems, formCityId, navCityId, active]);
+  }, [ready, loadRefs, fetchItems, active]);
 
   useEffect(() => { refreshAll(); }, [refreshAll, page]);
 
@@ -188,25 +198,13 @@ export default function AdminPage() {
     catch (err) { setLoadError(err instanceof Error ? err.message : 'Delete failed'); }
   }
 
-  async function loadDemoData() {
-    try {
-      setDemoMsg('Loading…');
-      const city = refs.cities.find((c) => c.id === formCityId) || refs.cities[0];
-      const result = await api<{ message: string; transits: number }>(`/seed/demo?cityCode=${city?.code || 'LHE'}`, { method: 'POST' });
-      setDemoMsg(`${result.message} (${result.transits} transits)`);
-      await refreshAll();
-    } catch (e) { setDemoMsg(e instanceof Error ? e.message : 'Failed'); }
-  }
-
   const sectorsForCity        = refs.sectors.filter((s) => s.cityId === (form.cityId || formCityId));
   const hospitalsForCity      = refs.hospitals.filter((h) => h.cityId === (form.cityId || formCityId));
   const paramedicsForProvider = refs.paramedics.filter((p) => !form.providerId || p.providerId === form.providerId);
   const activeResource        = RESOURCES.find((r) => r.key === active);
   const cityCfg               = getCityConfig(form);
 
-  const columns = items[0]
-    ? Object.keys(items[0]).filter((k) => !['password','createdAt','updatedAt','operationalConfig'].includes(k) && typeof items[0][k] !== 'object').slice(0, 8)
-    : [];
+  const columns = getAdminColumns(active);
 
   if (!ready) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#f4f6f9' }}>
@@ -232,13 +230,7 @@ export default function AdminPage() {
           className="w-52 shrink-0 flex flex-col overflow-y-auto"
           style={{ background: '#ffffff', borderRight: '1px solid #e5e7eb' }}
         >
-          {/* Header */}
-          <div className="px-4 pt-5 pb-3" style={{ borderBottom: '1px solid #f1f5f9' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Setup Order</p>
-          </div>
-
-          {/* Nav items */}
-          <nav className="flex-1 p-2 space-y-0.5">
+          <nav className="flex-1 p-2 pt-4 space-y-0.5">
             {RESOURCES.map((r) => (
               <button
                 key={r.key}
@@ -261,33 +253,10 @@ export default function AdminPage() {
                   {r.icon}
                 </span>
                 <span className="text-xs font-semibold flex-1 truncate">{r.label}</span>
-                <span
-                  className="text-[9px] font-bold w-4 h-4 rounded flex items-center justify-center shrink-0"
-                  style={{
-                    background: active === r.key ? '#dcfce7' : '#f3f4f6',
-                    color: active === r.key ? '#15803d' : '#9ca3af',
-                  }}
-                >
-                  {r.step}
-                </span>
               </button>
             ))}
           </nav>
 
-          {/* Demo data */}
-          <div className="p-3" style={{ borderTop: '1px solid #f1f5f9' }}>
-            <button
-              type="button"
-              onClick={loadDemoData}
-              className="btn-ghost w-full text-xs justify-center"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>database</span>
-              Load Demo Data
-            </button>
-            {demoMsg && (
-              <p className="text-[10px] text-gray-400 mt-2 text-center leading-snug">{demoMsg}</p>
-            )}
-          </div>
         </aside>
 
         {/* ── Main area ── */}
@@ -314,11 +283,7 @@ export default function AdminPage() {
                 style={{ background: '#e5e7eb' }}
               />
               <span className="text-xs font-mono font-semibold text-gray-500">{items.length} rows</span>
-              {CITY_SCOPED.includes(active) && (
-                <span className="pill pill-blue text-[10px]">
-                  {refs.cities.find((c) => c.id === (formCityId || navCityId))?.name || 'All cities'}
-                </span>
-              )}
+              <span className="pill pill-blue text-[10px]">All cities</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -348,12 +313,8 @@ export default function AdminPage() {
                 <thead>
                   <tr>
                     <th className="col-row-num">#</th>
-                    {columns.map((c) => (
-                      <th key={c}>
-                        <span className="flex items-center gap-1">
-                          {c.replace(/Id$/, '').replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                      </th>
+                    {columns.map((col) => (
+                      <th key={col.key}>{col.label}</th>
                     ))}
                     <th style={{ width: 110 }}>Actions</th>
                   </tr>
@@ -362,9 +323,9 @@ export default function AdminPage() {
                   {items.map((item, idx) => (
                     <tr key={item.id as string} className="animate-fade-in">
                       <td className="col-row-num">{idx + 1}</td>
-                      {columns.map((c) => (
-                        <td key={c}>
-                          <CellValue col={c} value={item[c]} />
+                      {columns.map((col) => (
+                        <td key={col.key}>
+                          <CellValue col={col.key} value={col.value(item, refs)} />
                         </td>
                       ))}
                       <td>

@@ -108,8 +108,8 @@ export function getStoredUser(): AuthUser | null {
 
 export const roleRoutes: Record<UserRole, string> = {
   hospital: '/hospital',
-  safe_city: '/hq',
-  hq_1122: '/safe-city',
+  safe_city: '/safe-city',
+  hq_1122: '/hq',
   vvip: '/vvip',
   paramedic: '/driver',
   admin: '/admin',

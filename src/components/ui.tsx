@@ -8,8 +8,8 @@ import { useCityContext } from '@/lib/city-context';
 // Each role maps to exactly ONE portal — no cross-portal navigation
 const ROLE_PORTAL: Record<string, { label: string; icon: string; href: string }> = {
   admin:      { label: 'System Admin',    icon: 'settings',        href: '/admin' },
-  hq_1122:    { label: '1122 HQ Ops',     icon: 'hub',             href: '/safe-city' },
-  safe_city:  { label: 'Safe City Ctrl',  icon: 'traffic',         href: '/hq' },
+  hq_1122:    { label: '1122 HQ Ops',     icon: 'hub',             href: '/hq' },
+  safe_city:  { label: 'Safe City Ctrl',  icon: 'traffic',         href: '/safe-city' },
   hospital:   { label: 'Hospital ER',     icon: 'local_hospital',  href: '/hospital' },
   paramedic:  { label: 'Paramedic App',   icon: 'ambulance',       href: '/driver' },
   vvip:       { label: 'VVIP Command',    icon: 'shield_person',   href: '/vvip' },
@@ -68,7 +68,7 @@ export function TopNav({ active }: { active?: string }) {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          {canSwitchCity && cities.length > 0 && (
+          {canSwitchCity && cities.length > 0 && user?.role !== 'admin' && (
             <CitySelector cities={cities} cityId={cityId} onChange={selectCity} />
           )}
           <div

@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TopNav, StatCard } from '@/components/ui';
+import { TopNav } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
-import { useAuthGuard, useSocket, useLiveEta } from '@/lib/hooks';
+import { formatEta, useAuthGuard, useSocket } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 
 interface HospitalOption {
@@ -17,6 +17,8 @@ interface Transit {
   etaMinutes: number;
   paramedicNotes: string;
   prepStatus: string;
+  status: string;
+  completedAt?: string | null;
   ambulance: { unitNumber: string; provider: { name: string } };
   emergencyType: { name: string };
   triageCode: { name: string; color: string; priority: number };
@@ -26,7 +28,14 @@ interface Transit {
 interface DashboardData {
   stats: { totalIncoming: number; todayCompleted: number; staffAlertActive: boolean };
   incomingQueue: Transit[];
+  completedHistory: Transit[];
   emergencyBreakdown: { name: string; code: string; count: string }[];
+}
+
+interface AlertItem {
+  id: string;
+  transit: Transit;
+  expiresAt: number;
 }
 
 const HOSPITAL_STORAGE_KEY = 'selectedHospitalId';
@@ -40,33 +49,31 @@ function setStoredHospitalId(id: string) {
   localStorage.setItem(HOSPITAL_STORAGE_KEY, id);
 }
 
-function QueueRow({ transit, isNew }: { transit: Transit; isNew: boolean }) {
-  const eta = useLiveEta(transit.etaMinutes);
-  const isCritical = transit.triageCode.priority === 1;
+function StatusTableRow({ transit }: { transit: Transit }) {
+  const eta = transit.status === 'completed' ? 'Done' : formatEta(transit.etaMinutes);
+  const isOngoing = transit.status !== 'completed';
 
   return (
-    <tr className={`hover:bg-slate-50 transition-all ${isNew ? 'bg-error-container/20 font-bold border-2 border-error' : ''}`}>
-      <td className="px-6 py-5">
-        <div className="flex flex-col">
-          <span className={`text-2xl font-mono leading-none font-extrabold ${isCritical ? 'text-error' : 'text-slate-700'}`}>
-            {eta}
-          </span>
-          <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1">minutes eta</span>
-        </div>
+    <tr className={`border-b border-outline-variant last:border-b-0 ${isOngoing ? 'animate-matrix-alert bg-red-50/80' : ''}`}>
+      <td className="w-[26%] px-2.5 py-2 align-top">
+        <div className="font-mono font-bold text-[11px] text-slate-800 break-words">{transit.transitId}</div>
+        <div className="text-[10px] uppercase text-slate-500 break-words">{transit.status}</div>
       </td>
-      <td className="px-6 py-5">
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-12 rounded-full shrink-0" style={{ backgroundColor: transit.triageCode.color }} />
-          <div>
-            <p className="font-extrabold text-base text-slate-800">{transit.triageCode.name}: {transit.emergencyType.name}</p>
-            <p className="text-xs font-semibold text-slate-500">Unit: <span className="font-mono text-primary">{transit.ambulance.unitNumber}</span> ({transit.sector?.name || 'Unknown Sector'})</p>
-          </div>
-        </div>
+      <td className="w-[25%] px-2.5 py-2 align-top">
+        <div className="font-semibold text-[11px] text-slate-800 break-words">{transit.ambulance.unitNumber}</div>
+        <div className="text-[10px] text-slate-500 break-words">{transit.sector?.name || 'Unknown Sector'}</div>
       </td>
-      <td className="px-6 py-5" colSpan={2}>
-        <p className="text-sm font-medium text-slate-600 bg-slate-50 border border-slate-100 p-2.5 rounded italic max-w-lg">
-          &quot;{transit.paramedicNotes || 'No notes reported'}&quot;
-        </p>
+      <td className="w-[29%] px-2.5 py-2 align-top">
+        <div className="font-semibold text-[11px] text-slate-800 break-words">{transit.triageCode.name}</div>
+        <div className="text-[10px] text-slate-500 break-words">{transit.emergencyType.name}</div>
+      </td>
+      <td className="w-[20%] px-2.5 py-2 align-top">
+        <div className="font-semibold text-[11px] text-slate-800 whitespace-nowrap">{eta}</div>
+        <div className="text-[10px] text-slate-500">
+          {transit.status === 'completed' && transit.completedAt
+            ? new Date(transit.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'ongoing'}
+        </div>
       </td>
     </tr>
   );
@@ -86,9 +93,15 @@ export default function HospitalDashboard() {
   const [filterTriage, setFilterTriage] = useState('');
   const [filterIssue, setFilterIssue] = useState('');
 
-  // New Transit Alert Popup State
   const prevQueueIdsRef = useRef<Set<string>>(new Set());
-  const [newTransitAlert, setNewTransitAlert] = useState<Transit | null>(null);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const nextSoundAtRef = useRef(0);
+
+  useEffect(() => {
+    audioRef.current = new Audio('/alert-sound.mp3');
+    audioRef.current.preload = 'auto';
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -135,25 +148,58 @@ export default function HospitalDashboard() {
   useEffect(() => { if (ready && hospitalId) load(); }, [ready, hospitalId, load]);
   useSocket(load);
 
-  // Monitor for incoming transits to alert
   useEffect(() => {
     if (!data?.incomingQueue) return;
     const currentIds = new Set(data.incomingQueue.map((t) => t.id));
     const prevIds = prevQueueIdsRef.current;
 
-    // Only fire alert popups if this is not the initial page load
     if (prevIds.size > 0) {
-      const newTransit = data.incomingQueue.find((t) => !prevIds.has(t.id));
-      if (newTransit) {
-        setNewTransitAlert(newTransit);
-        const timer = setTimeout(() => {
-          setNewTransitAlert(null);
-        }, 5000);
-        prevQueueIdsRef.current = currentIds;
-        return () => clearTimeout(timer);
+      const newTransits = data.incomingQueue.filter((t) => !prevIds.has(t.id));
+      if (newTransits.length) {
+        const now = Date.now();
+        setAlerts((prev) => {
+          const existing = new Set(prev.map((item) => item.id));
+          const additions = newTransits
+            .filter((t) => !existing.has(t.id))
+            .map((t, index) => ({
+              id: t.id,
+              transit: t,
+              expiresAt: now + 60000 + index,
+            }));
+          return [...prev, ...additions];
+        });
+
+        newTransits.forEach((_, index) => {
+          const soundDelay = Math.max(0, nextSoundAtRef.current - Date.now()) + index * 1500;
+          nextSoundAtRef.current = Date.now() + soundDelay + 1500;
+          window.setTimeout(() => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play().catch(() => undefined);
+          }, soundDelay);
+        });
       }
     }
     prevQueueIdsRef.current = currentIds;
+  }, [data?.incomingQueue]);
+
+  useEffect(() => {
+    if (!alerts.length) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setAlerts((prev) => prev.filter((item) => item.expiresAt > now));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [alerts.length]);
+
+  useEffect(() => {
+    setAlerts((prev) =>
+      prev.map((item) => {
+        const updated = data?.incomingQueue.find((t) => t.id === item.id);
+        return updated ? { ...item, transit: updated } : item;
+      }),
+    );
   }, [data?.incomingQueue]);
 
   function handleHospitalChange(id: string) {
@@ -165,20 +211,18 @@ export default function HospitalDashboard() {
   const selectedHospital = hospitals.find((h) => h.id === hospitalId);
   const hospitalName = isAdmin ? selectedHospital?.name : user?.hospital?.name;
 
-  // Filter options derived dynamically from queue
   const triageOptions = useMemo(() => {
     if (!data) return [];
-    const set = new Set(data.incomingQueue.map((t) => t.triageCode.name));
+    const set = new Set([...data.incomingQueue, ...data.completedHistory].map((t) => t.triageCode.name));
     return Array.from(set);
-  }, [data?.incomingQueue]);
+  }, [data?.incomingQueue, data?.completedHistory]);
 
   const issueOptions = useMemo(() => {
     if (!data) return [];
-    const set = new Set(data.incomingQueue.map((t) => t.emergencyType.name));
+    const set = new Set([...data.incomingQueue, ...data.completedHistory].map((t) => t.emergencyType.name));
     return Array.from(set);
-  }, [data?.incomingQueue]);
+  }, [data?.incomingQueue, data?.completedHistory]);
 
-  // Filtered queue grouped with the alerted transit strictly pinned to top
   const filteredQueue = useMemo(() => {
     let list = data?.incomingQueue ?? [];
     if (filterTriage) {
@@ -188,9 +232,9 @@ export default function HospitalDashboard() {
       list = list.filter((t) => t.emergencyType.name === filterIssue);
     }
 
-    if (newTransitAlert) {
+    if (alerts[0]) {
       const queue = [...list];
-      const idx = queue.findIndex((t) => t.id === newTransitAlert.id);
+      const idx = queue.findIndex((t) => t.id === alerts[0].id);
       if (idx > -1) {
         const [item] = queue.splice(idx, 1);
         queue.unshift(item);
@@ -198,7 +242,23 @@ export default function HospitalDashboard() {
       }
     }
     return list;
-  }, [data?.incomingQueue, filterTriage, filterIssue, newTransitAlert]);
+  }, [data?.incomingQueue, filterTriage, filterIssue, alerts]);
+
+  const filteredHistory = useMemo(() => {
+    let list = data?.completedHistory ?? [];
+    if (filterTriage) {
+      list = list.filter((t) => t.triageCode.name === filterTriage);
+    }
+    if (filterIssue) {
+      list = list.filter((t) => t.emergencyType.name === filterIssue);
+    }
+    return list;
+  }, [data?.completedHistory, filterTriage, filterIssue]);
+
+  const combinedStatusList = useMemo(
+    () => [...filteredQueue, ...filteredHistory],
+    [filteredQueue, filteredHistory],
+  );
 
   if (!ready || cityLoading || (isAdmin && !hospitalsLoaded)) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -252,139 +312,146 @@ export default function HospitalDashboard() {
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
       <TopNav active="/hospital" />
       <div className="flex pt-16 h-full overflow-hidden">
-        {/* CSS Animation Injector */}
         <style>{`
-          @keyframes center-alert-blink {
+          @keyframes hospital-alert-pulse {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.95; }
           }
-          .animate-alert-blink {
-            animation: center-alert-blink 1s infinite ease-in-out;
+          @keyframes matrix-alert-glow {
+            0%, 100% { background-color: #fef2f2; box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+            50% { background-color: #fee2e2; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18); }
+          }
+          .animate-hospital-alert {
+            animation: hospital-alert-pulse 1s infinite ease-in-out;
+          }
+          .animate-matrix-alert {
+            animation: matrix-alert-glow 1.2s infinite ease-in-out;
           }
         `}</style>
 
-        {/* Sidebar */}
-        <aside className="hidden lg:flex fixed left-0 h-full w-[280px] bg-white border-r border-outline-variant flex-col py-4 z-20">
-          <div className="px-6 mb-8">
-            {isAdmin && hospitals.length > 0 && (
-              <div className="mb-6">
-                <label className="text-[10px] font-extrabold uppercase text-primary block mb-2 tracking-wider">Select Hospital</label>
-                <select
-                  value={hospitalId}
-                  onChange={(e) => handleHospitalChange(e.target.value)}
-                  className="w-full border border-outline-variant rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-primary font-semibold text-slate-800"
-                >
-                  {hospitals.map((h) => (
-                    <option key={h.id} value={h.id}>{h.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <h2 className="text-xl font-bold text-slate-800">{hospitalName || 'Hospital ER'}</h2>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-semibold text-slate-500">Active Ops: {String(data.stats.totalIncoming).padStart(2, '0')} In-Bound</span>
+        <main className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+          {isAdmin && hospitals.length > 0 && (
+            <div className="max-w-xs">
+              <label className="text-[10px] font-extrabold uppercase text-primary block mb-2 tracking-wider">Select Hospital</label>
+              <select
+                value={hospitalId}
+                onChange={(e) => handleHospitalChange(e.target.value)}
+                className="w-full border border-outline-variant rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-primary font-semibold text-slate-800"
+              >
+                {hospitals.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
             </div>
-            {isAdmin && (
-              <a href="/admin" className="inline-flex items-center gap-1.5 mt-6 text-xs font-bold text-primary hover:underline">
-                <span className="material-symbols-outlined text-[16px]">settings</span>
-                System Administration
-              </a>
-            )}
-          </div>
-        </aside>
-
-        {/* Main Content Pane */}
-        <main className="flex-1 lg:ml-[280px] p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-          {/* Stats Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard label="Total Incoming" value={String(data.stats.totalIncoming).padStart(2, '0')} suffix="Ambulances" />
-            <StatCard label="Completed Today" value={data.stats.todayCompleted} accent="tertiary" />
-            <StatCard
-              label="Staff Alert Status"
-              value={data.stats.staffAlertActive ? 'ACTIVE' : 'NORMAL'}
-              accent={data.stats.staffAlertActive ? 'error' : 'tertiary'}
-            />
-          </div>
+          )}
 
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0">
-            {/* Tabular Patient Queue */}
-            <section className="flex-[1.5] bg-white rounded-xl border border-outline-variant flex flex-col overflow-hidden shadow-sm">
-              <div className="px-6 py-4.5 border-b border-outline-variant flex flex-wrap justify-between items-center bg-slate-50 gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[24px]">clinical_research</span>
-                  <h3 className="text-lg font-bold text-slate-800">Incoming Patient Triage Queue</h3>
+            <section className="flex-[1.45] flex flex-col gap-6 min-w-[340px]">
+              <div className="bg-white rounded-xl border border-outline-variant p-6 shadow-sm">
+                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                  <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">dashboard</span>
+                    Ongoing Grid
+                  </h4>
+                  <div className="flex gap-2">
+                    <select
+                      className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
+                      value={filterTriage}
+                      onChange={(e) => setFilterTriage(e.target.value)}
+                    >
+                      <option value="">All Triage Levels</option>
+                      {triageOptions.map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
+                      value={filterIssue}
+                      onChange={(e) => setFilterIssue(e.target.value)}
+                    >
+                      <option value="">All Issues</option>
+                      {issueOptions.map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-
-                {/* Inline filters */}
-                <div className="flex gap-2">
-                  <select
-                    className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
-                    value={filterTriage}
-                    onChange={(e) => setFilterTriage(e.target.value)}
-                  >
-                    <option value="">All Triage Levels</option>
-                    {triageOptions.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
-                    value={filterIssue}
-                    onChange={(e) => setFilterIssue(e.target.value)}
-                  >
-                    <option value="">All Issues</option>
-                    {issueOptions.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                  {filteredQueue.map((t) => (
+                    <div
+                      key={t.id}
+                      className={`rounded-2xl border p-4 shadow-sm min-h-[190px] ${alerts.some((item) => item.id === t.id) ? 'border-red-300 bg-red-50 animate-matrix-alert' : 'border-red-200 bg-red-50 animate-matrix-alert'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-mono font-bold text-base text-slate-800">{t.transitId}</p>
+                          <p className="text-sm font-semibold text-slate-700">{t.ambulance.unitNumber}</p>
+                        </div>
+                        <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase text-white" style={{ backgroundColor: t.triageCode.color }}>
+                          {t.triageCode.name}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Emergency</p>
+                          <p className="font-semibold text-slate-700">{t.emergencyType.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">ETA</p>
+                          <p className="font-semibold text-slate-700">{formatEta(t.etaMinutes)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-2 text-sm">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Hospital</p>
+                          <p className="font-semibold text-slate-700">{hospitalName || 'Hospital ER'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Notes</p>
+                          <p className="text-xs italic text-slate-500">"{t.paramedicNotes || 'No notes provided'}"</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredQueue.length === 0 && (
+                    <p className="text-slate-400 text-sm italic py-4 text-center">No ongoing ambulances.</p>
+                  )}
                 </div>
-              </div>
-
-              {/* Data Table */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold tracking-widest border-b border-outline-variant">
-                      <th className="px-6 py-3">ETA</th>
-                      <th className="px-6 py-3">Patient Priority / Ambulance</th>
-                      <th className="px-6 py-3" colSpan={2}>Paramedic Vitals & Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant">
-                    {filteredQueue.map((t) => (
-                      <QueueRow key={t.id} transit={t} isNew={newTransitAlert?.id === t.id} />
-                    ))}
-                    {filteredQueue.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-16 text-center text-slate-400 font-medium">
-                          No active incoming ambulances matching filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
               </div>
             </section>
 
-            {/* Breakdown section */}
-            <section className="flex-1 flex flex-col gap-6 min-w-[340px]">
-              <div className="bg-white rounded-xl border border-outline-variant p-6 shadow-sm">
-                <h4 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-primary">analytics</span>
-                  Emergency Breakdown Today
-                </h4>
-                <div className="space-y-3">
-                  {data.emergencyBreakdown.map((e) => (
-                    <div key={e.code} className="flex justify-between items-center bg-slate-50 p-3.5 rounded-lg border border-outline-variant">
-                      <span className="font-semibold text-slate-700">{e.name}</span>
-                      <span className="font-mono font-extrabold text-primary text-base">{e.count}</span>
-                    </div>
-                  ))}
-                  {data.emergencyBreakdown.length === 0 && (
-                    <p className="text-slate-400 text-sm italic py-4 text-center">No emergencies recorded today</p>
-                  )}
+            <section className="w-full lg:w-[330px] xl:w-[320px] shrink-0 flex flex-col gap-6">
+              <div className="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+                <div className="px-4 py-3 border-b border-outline-variant bg-slate-50">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">table_rows</span>
+                    Ongoing and Completed Details
+                  </h4>
+                </div>
+                <div className="overflow-y-auto overflow-x-hidden max-h-[420px] custom-scrollbar">
+                  <table className="w-full table-fixed text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold tracking-widest border-b border-outline-variant">
+                        <th className="w-[26%] px-2.5 py-2">Transit</th>
+                        <th className="w-[25%] px-2.5 py-2">Ambulance</th>
+                        <th className="w-[29%] px-2.5 py-2">Priority</th>
+                        <th className="w-[20%] px-2.5 py-2">ETA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {combinedStatusList.map((t) => (
+                        <StatusTableRow key={`${t.status}-${t.id}`} transit={t} />
+                      ))}
+                      {combinedStatusList.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-10 text-center text-slate-400 font-medium text-sm">
+                            No ongoing or completed cases matching filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </section>
@@ -392,33 +459,34 @@ export default function HospitalDashboard() {
         </main>
       </div>
 
-      {/* Blinking Triage Alert Popup in center screen */}
-      {newTransitAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div
-            className="animate-alert-blink text-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center space-y-4 border-4 border-white"
-            style={{ backgroundColor: newTransitAlert.triageCode.color }}
-          >
-            <span className="material-symbols-outlined text-6xl text-white">emergency</span>
-            <div>
-              <h2 className="text-3xl font-extrabold uppercase tracking-wide">
-                NEW INCOMING PATIENT!
-              </h2>
-              <p className="text-sm font-bold opacity-90 mt-1">
-                Triage Priority: {newTransitAlert.triageCode.name}
-              </p>
-            </div>
-            <div className="bg-white/15 rounded-xl p-5 text-left border border-white/20">
-              <p className="font-mono font-bold text-2xl mb-1">{newTransitAlert.transitId}</p>
-              <p className="text-sm font-semibold">Diagnosis: {newTransitAlert.emergencyType.name}</p>
-              <p className="text-sm font-semibold">Ambulance: {newTransitAlert.ambulance.unitNumber}</p>
-              <p className="text-xs italic opacity-95 mt-3 border-t border-white/20 pt-2">
-                &quot;{newTransitAlert.paramedicNotes || 'No vitals notes provided'}&quot;
-              </p>
-            </div>
-            <p className="text-xs font-bold uppercase opacity-85 tracking-widest animate-pulse">
-              Autodismissing in 5 seconds...
-            </p>
+      {alerts.length > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none p-4 md:p-6">
+          <div className="h-full flex flex-wrap content-start gap-4 overflow-hidden">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="animate-hospital-alert pointer-events-auto bg-white/95 backdrop-blur rounded-2xl shadow-2xl border-4 border-red-600 p-5 w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-red-600">Incoming ambulance</p>
+                    <p className="font-mono font-bold text-xl text-slate-900">{alert.transit.transitId}</p>
+                  </div>
+                  <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase text-white" style={{ backgroundColor: alert.transit.triageCode.color }}>
+                    {alert.transit.triageCode.name}
+                  </span>
+                </div>
+                <div className="mt-4 space-y-1 text-sm text-slate-700">
+                  <p><strong>Ambulance:</strong> {alert.transit.ambulance.unitNumber}</p>
+                  <p><strong>Emergency:</strong> {alert.transit.emergencyType.name}</p>
+                  <p><strong>ETA:</strong> {formatEta(alert.transit.etaMinutes)}</p>
+                  <p className="italic text-slate-500">"{alert.transit.paramedicNotes || 'No notes provided'}"</p>
+                </div>
+                <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-red-600">
+                  Closing in {Math.max(0, Math.ceil((alert.expiresAt - Date.now()) / 1000))}s
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}
