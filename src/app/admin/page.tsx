@@ -158,8 +158,7 @@ export default function AdminPage() {
       case 'hospitals':
         return { name: form.name, cityId: form.cityId || formCityId, address: form.address || undefined,
           latitude: form.latitude ? Number(form.latitude) : undefined, longitude: form.longitude ? Number(form.longitude) : undefined,
-          sectorId: form.sectorId || undefined, bedCapacity: form.bedCapacity ? Number(form.bedCapacity) : undefined,
-          erBays: form.erBays ? Number(form.erBays) : undefined,
+          sectorId: form.sectorId || undefined,
           specialties: typeof form.specialties === 'string' ? (form.specialties as string).split(',').map((s) => s.trim()).filter(Boolean) : Array.isArray(form.specialties) ? form.specialties : undefined };
       case 'emergency-types':
         return { name: form.name, code: String(form.code || '').toUpperCase(), description: form.description || undefined, severityLevel: Number(form.severityLevel) || 3 };
@@ -516,20 +515,15 @@ export default function AdminPage() {
                       </FormField>
                       <div className="grid grid-cols-2 gap-3">
                         <FormField label="Latitude" required>
-                          <TextInput type="number" step="any" value={(form.latitude as number) ?? ''} onChange={(v) => setForm({ ...form, latitude: v })} placeholder="31.58" required />
+                          <TextInput type="number" step="any" value={(form.latitude as number) ?? ''} onChange={(v) => setForm({ ...form, latitude: v })} placeholder="31.57045" required />
                         </FormField>
                         <FormField label="Longitude" required>
-                          <TextInput type="number" step="any" value={(form.longitude as number) ?? ''} onChange={(v) => setForm({ ...form, longitude: v })} placeholder="74.33" required />
+                          <TextInput type="number" step="any" value={(form.longitude as number) ?? ''} onChange={(v) => setForm({ ...form, longitude: v })} placeholder="74.30892" required />
                         </FormField>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Beds">
-                          <TextInput type="number" value={(form.bedCapacity as number) ?? ''} onChange={(v) => setForm({ ...form, bedCapacity: v })} placeholder="500" />
-                        </FormField>
-                        <FormField label="ER Bays">
-                          <TextInput type="number" value={(form.erBays as number) ?? ''} onChange={(v) => setForm({ ...form, erBays: v })} placeholder="12" />
-                        </FormField>
-                      </div>
+                      <InfoBox title="GPS required">
+                        Latitude and longitude are required so drivers can draw the shortest path to this hospital.
+                      </InfoBox>
                       <FormField label="Specialties (comma-separated)">
                         <TextInput value={typeof form.specialties === 'string' ? form.specialties : Array.isArray(form.specialties) ? (form.specialties as string[]).join(', ') : ''}
                           onChange={(v) => setForm({ ...form, specialties: v })} placeholder="Neurosurgery, Burn Care" />

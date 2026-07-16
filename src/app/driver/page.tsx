@@ -6,6 +6,7 @@ import { useAuthGuard } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
 import { MapMarker, MapRoute, parseCoord, LAHORE_CENTER } from '@/components/map-types';
+import { getLiveRoute } from '@/lib/demo-route';
 
 interface Hospital {
   id: string;
@@ -43,6 +44,8 @@ interface Transit {
   triageCode: { name: string };
 }
 
+const GPS_INTERVAL_MS = 15_000;
+
 export default function DriverApp() {
   const { user, ready } = useAuthGuard('paramedic');
   const { cityId, loading: cityLoading } = useCityContext();
@@ -60,38 +63,60 @@ export default function DriverApp() {
   const [loadError, setLoadError] = useState('');
   const [deviceLocation, setDeviceLocation] = useState<[number, number] | null>(null);
   const [watchingLocation, setWatchingLocation] = useState(false);
+  const [lastGpsOkAt, setLastGpsOkAt] = useState<string | null>(null);
+  const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
   const locationWatchRef = useRef<number | null>(null);
+  const lastGpsSentRef = useRef(0);
+  const ambulanceRef = useRef<Ambulance | null>(null);
+  const transitRef = useRef<Transit | null>(null);
 
   const resolvedCityId = cityId || user?.cityId || null;
+
+  useEffect(() => { ambulanceRef.current = ambulance; }, [ambulance]);
+  useEffect(() => { transitRef.current = activeTransit; }, [activeTransit]);
 
   const load = useCallback(async () => {
     if (!resolvedCityId) return;
     const cq = cityQuery(resolvedCityId);
     setLoadError('');
     try {
-      const [h, et, tc, ambulances, transits] = await Promise.all([
+      const [h, et, tc, mine, transitsRaw] = await Promise.all([
         api<Hospital[]>(`/hospitals${cq}`),
         api<EmergencyType[]>('/emergency-types'),
         api<TriageCode[]>('/triage-codes'),
-        api<Ambulance[]>(`/ambulances${cq}`),
-        api<Transit[]>(`/transits?active=true&cityId=${resolvedCityId}`),
+        api<{ ambulance: Ambulance; activeTransit: Transit | null } | null>('/ambulances/mine').catch(() => null),
+        api<Transit[] | { data: Transit[] }>(`/transits?active=true&cityId=${resolvedCityId}`),
       ]);
       setHospitals(h);
       setEmergencyTypes(et);
       setTriageCodes(tc);
-      const myAmbulance =
-        ambulances.find((a) => a.driverId === user?.id) ??
-        ambulances.find((a) => a.status === 'available') ??
-        null;
+
+      let myAmbulance = mine?.ambulance ?? null;
+      if (!myAmbulance) {
+        const ambRes = await api<Ambulance[] | { data: Ambulance[] }>(`/ambulances${cq}`);
+        const ambulances = Array.isArray(ambRes) ? ambRes : ambRes.data ?? [];
+        myAmbulance =
+          ambulances.find((a) => a.driverId === user?.id) ??
+          ambulances.find((a) => a.status === 'available') ??
+          null;
+      }
       setAmbulance(myAmbulance);
 
-      const mine = transits.find(
-        (t) =>
-          myAmbulance &&
-          t.ambulanceId === myAmbulance.id &&
-          (t.status === 'en_route' || t.status === 'pending' || t.status === 'arrived'),
-      ) ?? null;
-      setActiveTransit(mine);
+      const transits = Array.isArray(transitsRaw) ? transitsRaw : transitsRaw.data ?? [];
+      const mineTransit =
+        mine?.activeTransit ??
+        transits.find(
+          (t) =>
+            myAmbulance &&
+            t.ambulanceId === myAmbulance.id &&
+            (t.status === 'en_route' || t.status === 'pending' || t.status === 'arrived'),
+        ) ??
+        null;
+      setActiveTransit(mineTransit);
+
+      if (myAmbulance && parseCoord(myAmbulance.currentLat) != null && parseCoord(myAmbulance.currentLng) != null) {
+        setDeviceLocation((prev) => prev ?? [Number(myAmbulance!.currentLat), Number(myAmbulance!.currentLng)]);
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load dispatch data');
     }
@@ -101,54 +126,138 @@ export default function DriverApp() {
     if (ready && resolvedCityId && !cityLoading) load();
   }, [ready, resolvedCityId, cityLoading, load]);
 
+  const pushGps = useCallback(async (lat: number, lng: number, speedKmh: number) => {
+    const unit = ambulanceRef.current;
+    if (!unit) return;
+    const now = Date.now();
+    if (now - lastGpsSentRef.current < GPS_INTERVAL_MS) return;
+    lastGpsSentRef.current = now;
+
+    try {
+      const body: Record<string, number | string> = {
+        latitude: lat,
+        longitude: lng,
+        speed: speedKmh,
+      };
+      const trip = transitRef.current;
+      if (trip?.id) body.transitId = trip.id;
+
+      const result = await api<{
+        ok: boolean;
+        ambulance: Ambulance;
+        transit: Transit | null;
+        recordedAt: string;
+      }>(`/ambulances/${unit.id}/gps`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+
+      setAmbulance((prev) => prev ? { ...prev, ...result.ambulance } : result.ambulance);
+      setLastGpsOkAt(result.recordedAt);
+
+      if (result.transit?.status === 'completed') {
+        setMessage('Trip completed.');
+        setNotes('');
+        setHospitalId('');
+        setEmergencyTypeId('');
+        setTriageCodeId('');
+        setActiveTransit(null);
+        load();
+      } else if (result.transit) {
+        setActiveTransit((prev) => (prev ? { ...prev, ...result.transit! } : result.transit));
+      }
+    } catch {
+      // Keep map alive if one GPS post fails
+    }
+  }, [load]);
+
   useEffect(() => {
     if (!ambulance || !ready || typeof window === 'undefined' || !('geolocation' in navigator)) return;
 
     const watchId = navigator.geolocation.watchPosition(
-      async (position) => {
+      (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         const speedMps = position.coords.speed ?? 0;
         const speedKmh = Math.max(0, Number(speedMps) * 3.6);
         setDeviceLocation([lat, lng]);
         setWatchingLocation(true);
-
-        if (!activeTransit || activeTransit.status === 'completed') return;
-        try {
-          const result = await api<{ ambulance: Ambulance; transit: Transit | null }>(`/ambulances/${ambulance.id}/gps`, {
-            method: 'PATCH',
-            body: JSON.stringify({ latitude: lat, longitude: lng, speed: speedKmh }),
-          });
-          if (result.transit?.status === 'completed') {
-            setMessage('Trip completed.');
-            setNotes('');
-            setHospitalId('');
-            setEmergencyTypeId('');
-            setTriageCodeId('');
-            setActiveTransit(null);
-            load();
-          } else if (result.transit) {
-            setActiveTransit(result.transit);
-          }
-        } catch {
-          // Keep the map alive even if one GPS post fails.
-        }
+        void pushGps(lat, lng, speedKmh);
       },
       (error) => {
         setWatchingLocation(false);
         setLoadError(error.message || 'Location access is required for live tracking');
       },
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
 
     locationWatchRef.current = watchId;
+
+    // Force a ping every 15s even if watchPosition is quiet
+    const interval = window.setInterval(() => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const speedKmh = Math.max(0, Number(position.coords.speed ?? 0) * 3.6);
+          setDeviceLocation([lat, lng]);
+          setWatchingLocation(true);
+          lastGpsSentRef.current = 0; // allow interval force-send
+          void pushGps(lat, lng, speedKmh);
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 },
+      );
+    }, GPS_INTERVAL_MS);
+
     return () => {
       if (locationWatchRef.current != null) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
         locationWatchRef.current = null;
       }
+      window.clearInterval(interval);
     };
-  }, [ambulance?.id, activeTransit?.id, activeTransit?.status, load, ready]);
+  }, [ambulance?.id, ready, pushGps]);
+
+  // Shortest driving path from live GPS → hospital (OSRM)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRoute() {
+      if (!currentPosCandidate() || !destinationCandidate()) {
+        setRoutePoints([]);
+        return;
+      }
+      const from = currentPosCandidate()!;
+      const to = destinationCandidate()!;
+      const path = await getLiveRoute(from, to);
+      if (!cancelled) setRoutePoints(path);
+    }
+
+    function currentPosCandidate(): [number, number] | null {
+      if (deviceLocation) return deviceLocation;
+      if (ambulance && parseCoord(ambulance.currentLat) != null && parseCoord(ambulance.currentLng) != null) {
+        return [Number(ambulance.currentLat), Number(ambulance.currentLng)];
+      }
+      return null;
+    }
+    function destinationCandidate(): [number, number] | null {
+      if (!activeTransit) return null;
+      if (parseCoord(activeTransit.hospital.latitude) == null || parseCoord(activeTransit.hospital.longitude) == null) return null;
+      return [Number(activeTransit.hospital.latitude), Number(activeTransit.hospital.longitude)];
+    }
+
+    void loadRoute();
+    return () => { cancelled = true; };
+  }, [
+    activeTransit?.id,
+    activeTransit?.hospital?.latitude,
+    activeTransit?.hospital?.longitude,
+    deviceLocation?.[0],
+    deviceLocation?.[1],
+    ambulance?.currentLat,
+    ambulance?.currentLng,
+  ]);
 
   async function handleGo() {
     if (!ambulance || !hospitalId || !emergencyTypeId || !triageCodeId) {
@@ -181,7 +290,9 @@ export default function DriverApp() {
         body: JSON.stringify({ currentLat: originLat, currentLng: originLng }),
       });
       setActiveTransit(started);
-      setMessage('Corridor requested. HQ and hospital dashboards updated.');
+      lastGpsSentRef.current = 0;
+      void pushGps(originLat, originLng, 0);
+      setMessage('Corridor requested. Live GPS is streaming to HQ.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to start');
     } finally {
@@ -237,14 +348,32 @@ export default function DriverApp() {
     : null;
   const markers: MapMarker[] = [];
   if (currentPos) {
-    markers.push({ id: 'me', lat: currentPos[0], lng: currentPos[1], label: ambulance?.unitNumber || 'Unit', color: '#d93343', shape: 'circle', sublabel: 'Your live location' });
+    markers.push({
+      id: 'me',
+      lat: currentPos[0],
+      lng: currentPos[1],
+      label: ambulance?.unitNumber || 'Unit',
+      color: '#d93343',
+      shape: 'circle',
+      sublabel: watchingLocation ? 'Your live location' : 'Last known location',
+    });
   }
   if (destination) {
-    markers.push({ id: 'hospital', lat: destination[0], lng: destination[1], label: activeTransit?.hospital.name || 'Hospital', color: '#0056b3', shape: 'square', sublabel: 'Destination hospital' });
+    markers.push({
+      id: 'hospital',
+      lat: destination[0],
+      lng: destination[1],
+      label: activeTransit?.hospital.name || 'Hospital',
+      color: '#0056b3',
+      shape: 'square',
+      sublabel: 'Destination hospital',
+    });
   }
-  const routes: MapRoute[] = currentPos && destination
-    ? [{ id: 'live-route', positions: [currentPos, destination], color: '#0056b3' }]
-    : [];
+  const routes: MapRoute[] = routePoints.length >= 2
+    ? [{ id: 'live-route', positions: routePoints, color: '#0056b3' }]
+    : currentPos && destination
+      ? [{ id: 'live-route', positions: [currentPos, destination], color: '#0056b3' }]
+      : [];
   const mapCenter: [number, number] = currentPos || LAHORE_CENTER;
 
   return (
@@ -254,6 +383,10 @@ export default function DriverApp() {
           <div>
             <h1 className="text-xl font-bold">Ambulance Dispatch</h1>
             <p className="text-sm opacity-90">{user?.name || getStoredUser()?.name} | {ambulance?.unitNumber || 'No unit'}</p>
+            <p className="text-[11px] opacity-80">
+              GPS {watchingLocation ? 'LIVE' : 'OFF'} · sync every 15s
+              {lastGpsOkAt ? ` · last sent ${new Date(lastGpsOkAt).toLocaleTimeString()}` : ''}
+            </p>
           </div>
           <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="text-sm opacity-80">
             Logout
@@ -261,9 +394,21 @@ export default function DriverApp() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full">
+      <main className="flex-1 p-4 max-w-lg mx-auto w-full space-y-4">
+        <div className="h-[280px] rounded-xl overflow-hidden border border-outline-variant relative">
+          <OsmMap center={mapCenter} zoom={13} markers={markers} routes={routes} className="h-full w-full" />
+          <div className="absolute top-2 left-2 z-[1000] glass-panel px-2 py-1 rounded text-[10px] font-bold text-primary">
+            {currentPos ? 'YOUR LIVE LOCATION' : 'WAITING FOR GPS'}
+          </div>
+          {currentPos && (
+            <div className="absolute bottom-2 left-2 z-[1000] glass-panel px-2 py-1 rounded text-[10px] font-mono">
+              {currentPos[0].toFixed(5)}, {currentPos[1].toFixed(5)}
+            </div>
+          )}
+        </div>
+
         {activeTransit ? (
-          <div className="space-y-4 mt-2">
+          <div className="space-y-4">
             <div className="bg-surface-container-lowest border-2 border-primary rounded-xl p-4 shadow-lg">
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-3 h-3 bg-error rounded-full severity-pulse" />
@@ -274,16 +419,7 @@ export default function DriverApp() {
               <p className="text-sm text-on-surface-variant">
                 {activeTransit.triageCode.name}: {activeTransit.emergencyType.name}
               </p>
-              <p className="text-xs text-on-surface-variant mt-1">
-                Status: {activeTransit.status.toUpperCase()} · GPS {watchingLocation ? 'LIVE' : 'WAITING'}
-              </p>
-            </div>
-
-            <div className="h-[320px] rounded-xl overflow-hidden border border-outline-variant relative">
-              <OsmMap center={mapCenter} zoom={13} markers={markers} routes={routes} className="h-full w-full" />
-              <div className="absolute top-2 left-2 z-[1000] glass-panel px-2 py-1 rounded text-[10px] font-bold text-primary">
-                LIVE DEVICE LOCATION
-              </div>
+              <p className="text-xs text-on-surface-variant mt-1">Status: {activeTransit.status.toUpperCase()}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -302,12 +438,9 @@ export default function DriverApp() {
                 {loading ? 'Processing...' : 'COMPLETE TRIP'}
               </button>
             </div>
-            <p className="text-[11px] text-center text-on-surface-variant">
-              The driver sees only the live location map. HQ and hospital dashboards receive the request details through the API.
-            </p>
           </div>
         ) : (
-          <div className="space-y-4 mt-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">1. Destination Hospital *</label>
               <select
@@ -358,18 +491,15 @@ export default function DriverApp() {
             >
               {loading ? 'REQUESTING...' : '▶ REQUEST CORRIDOR'}
             </button>
-            {!ambulance && <p className="text-error text-sm text-center">No available ambulance assigned to you</p>}
-            <p className="text-[11px] text-center text-on-surface-variant">
-              Allow device GPS so the map can show your current location and send live ambulance updates.
-            </p>
+            {!ambulance && <p className="text-error text-sm text-center">No ambulance assigned to your driver account</p>}
           </div>
         )}
 
         {loadError && (
-          <div className="mt-4 p-4 rounded-lg text-center font-medium bg-error-container text-on-error-container">{loadError}</div>
+          <div className="p-4 rounded-lg text-center font-medium bg-error-container text-on-error-container">{loadError}</div>
         )}
         {message && (
-          <div className={`mt-4 p-4 rounded-lg text-center font-medium ${message.toLowerCase().includes('fail') ? 'bg-error-container text-on-error-container' : 'bg-tertiary-container/30 text-tertiary'}`}>
+          <div className={`p-4 rounded-lg text-center font-medium ${message.toLowerCase().includes('fail') ? 'bg-error-container text-on-error-container' : 'bg-tertiary-container/30 text-tertiary'}`}>
             {message}
           </div>
         )}

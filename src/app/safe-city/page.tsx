@@ -17,7 +17,12 @@ interface Corridor {
   currentLng?: number | string | null;
   originLat?: number | string | null;
   originLng?: number | string | null;
-  ambulance: { unitNumber: string; provider: { name: string; color: string; shape?: string } };
+  ambulance: {
+    unitNumber: string;
+    currentLat?: number | string | null;
+    currentLng?: number | string | null;
+    provider: { name: string; color: string; shape?: string };
+  };
   hospital: { name: string; latitude?: number | string | null; longitude?: number | string | null };
   sector: { name: string };
   triageCode: { name: string };
@@ -98,8 +103,16 @@ export default function SafeCityDashboard() {
   }
 
   const markers: MapMarker[] = data.activeCorridors.map((c, i) => {
-    const lat = parseCoord(c.currentLat) ?? parseCoord(c.originLat) ?? fallbackPosition(i)[0];
-    const lng = parseCoord(c.currentLng) ?? parseCoord(c.originLng) ?? fallbackPosition(i)[1];
+    const lat =
+      parseCoord(c.currentLat) ??
+      parseCoord(c.ambulance.currentLat) ??
+      parseCoord(c.originLat) ??
+      fallbackPosition(i)[0];
+    const lng =
+      parseCoord(c.currentLng) ??
+      parseCoord(c.ambulance.currentLng) ??
+      parseCoord(c.originLng) ??
+      fallbackPosition(i)[1];
     return {
       id: c.id,
       lat,
@@ -112,8 +125,16 @@ export default function SafeCityDashboard() {
   });
 
   const routes: MapRoute[] = data.activeCorridors.map((c, i) => {
-    const fromLat = parseCoord(c.currentLat) ?? parseCoord(c.originLat) ?? fallbackPosition(i)[0];
-    const fromLng = parseCoord(c.currentLng) ?? parseCoord(c.originLng) ?? fallbackPosition(i)[1];
+    const fromLat =
+      parseCoord(c.currentLat) ??
+      parseCoord(c.ambulance.currentLat) ??
+      parseCoord(c.originLat) ??
+      fallbackPosition(i)[0];
+    const fromLng =
+      parseCoord(c.currentLng) ??
+      parseCoord(c.ambulance.currentLng) ??
+      parseCoord(c.originLng) ??
+      fallbackPosition(i)[1];
     const toLat = parseCoord(c.hospital.latitude) ?? LAHORE_CENTER[0];
     const toLng = parseCoord(c.hospital.longitude) ?? LAHORE_CENTER[1];
     return {
