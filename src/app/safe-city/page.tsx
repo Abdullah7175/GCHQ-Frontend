@@ -22,6 +22,7 @@ interface Corridor {
     unitNumber: string;
     currentLat?: number | string | null;
     currentLng?: number | string | null;
+    currentSpeed?: number | string | null;
     provider: { name: string; color: string; shape?: string };
   };
   hospital: { name: string; latitude?: number | string | null; longitude?: number | string | null };
@@ -31,6 +32,14 @@ interface Corridor {
 
 interface SafeCityData {
   activeCorridors: Corridor[];
+}
+
+function liveSpeedKmh(c: Corridor): number {
+  const fromTransit = Number(c.currentSpeed);
+  const fromAmbulance = Number(c.ambulance?.currentSpeed);
+  if (Number.isFinite(fromTransit) && fromTransit > 0) return fromTransit;
+  if (Number.isFinite(fromAmbulance) && fromAmbulance >= 0) return fromAmbulance;
+  return 0;
 }
 
 function corridorFrom(c: Corridor, i: number, cityCenter: [number, number]): [number, number] {
@@ -85,7 +94,7 @@ function CorridorCard({ corridor }: { corridor: Corridor }) {
         </div>
         <div>
           <div className="text-[10px] font-mono text-on-surface-variant">SPEED</div>
-          <div className="font-semibold">{Number(corridor.currentSpeed).toFixed(0)} km/h</div>
+          <div className="font-semibold">{liveSpeedKmh(corridor).toFixed(0)} km/h</div>
         </div>
       </div>
     </div>
@@ -98,6 +107,7 @@ export default function SafeCityDashboard() {
   const [data, setData] = useState<SafeCityData | null>(null);
   const [error, setError] = useState('');
   const [routes, setRoutes] = useState<MapRoute[]>([]);
+  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
 
   const mapView = useMemo(() => resolveCityMapView(currentCity), [currentCity]);
   const routeFingerprint = useMemo(
@@ -107,6 +117,7 @@ export default function SafeCityDashboard() {
           c.id,
           Number(c.currentLat ?? c.ambulance.currentLat ?? 0).toFixed(4),
           Number(c.currentLng ?? c.ambulance.currentLng ?? 0).toFixed(4),
+          liveSpeedKmh(c).toFixed(0),
           c.hospital.latitude,
           c.hospital.longitude,
         ]),
@@ -120,6 +131,7 @@ export default function SafeCityDashboard() {
       setError('');
       const res = await api<{ activeCorridors: Corridor[] }>(`/dashboard/safe-city${cityQuery(cityId)}`);
       setData({ activeCorridors: res.activeCorridors });
+      setLastRefreshAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
     }
@@ -127,6 +139,13 @@ export default function SafeCityDashboard() {
 
   useEffect(() => { if (ready && cityId) load(); }, [ready, cityId, load]);
   useSocket(load);
+
+  // Poll every 15s so speed / GPS / ETA stay in sync even if sockets drop
+  useEffect(() => {
+    if (!ready || !cityId) return;
+    const timer = window.setInterval(() => { void load(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [ready, cityId, load]);
 
   // Road-following routes via OSRM (same as driver app); refresh when positions change
   useEffect(() => {
@@ -235,6 +254,9 @@ export default function SafeCityDashboard() {
             <p className="text-[10px] font-bold text-primary uppercase">
               Live Route Coordination — {currentCity?.name || 'City'} (OSM + OSRM)
             </p>
+            {lastRefreshAt && (
+              <p className="text-[10px] text-on-surface-variant mt-0.5">Auto-refresh 15s · last {lastRefreshAt}</p>
+            )}
           </div>
 
           <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur p-4 rounded border border-outline-variant shadow-lg space-y-2 z-[1000]">
