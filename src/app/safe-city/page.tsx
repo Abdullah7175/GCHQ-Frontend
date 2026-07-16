@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TopNav } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
 import { useAuthGuard, useSocket, useLiveEta } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
-import { MapMarker, MapRoute, parseCoord, fallbackPosition, LAHORE_CENTER } from '@/components/map-types';
+import { MapMarker, MapRoute, parseCoord, fallbackPosition, resolveCityMapView } from '@/components/map-types';
+import { getLiveRoute } from '@/lib/demo-route';
 
 interface Corridor {
   id: string;
@@ -30,6 +31,27 @@ interface Corridor {
 
 interface SafeCityData {
   activeCorridors: Corridor[];
+}
+
+function corridorFrom(c: Corridor, i: number, cityCenter: [number, number]): [number, number] {
+  const lat =
+    parseCoord(c.currentLat) ??
+    parseCoord(c.ambulance.currentLat) ??
+    parseCoord(c.originLat) ??
+    fallbackPosition(i, cityCenter)[0];
+  const lng =
+    parseCoord(c.currentLng) ??
+    parseCoord(c.ambulance.currentLng) ??
+    parseCoord(c.originLng) ??
+    fallbackPosition(i, cityCenter)[1];
+  return [lat, lng];
+}
+
+function corridorTo(c: Corridor): [number, number] | null {
+  const lat = parseCoord(c.hospital.latitude);
+  const lng = parseCoord(c.hospital.longitude);
+  if (lat == null || lng == null) return null;
+  return [lat, lng];
 }
 
 function CorridorCard({ corridor }: { corridor: Corridor }) {
@@ -72,9 +94,25 @@ function CorridorCard({ corridor }: { corridor: Corridor }) {
 
 export default function SafeCityDashboard() {
   const { ready } = useAuthGuard('safe_city');
-  const { cityId, loading: cityLoading } = useCityContext();
+  const { cityId, currentCity, loading: cityLoading } = useCityContext();
   const [data, setData] = useState<SafeCityData | null>(null);
   const [error, setError] = useState('');
+  const [routes, setRoutes] = useState<MapRoute[]>([]);
+
+  const mapView = useMemo(() => resolveCityMapView(currentCity), [currentCity]);
+  const routeFingerprint = useMemo(
+    () =>
+      JSON.stringify(
+        (data?.activeCorridors ?? []).map((c) => [
+          c.id,
+          Number(c.currentLat ?? c.ambulance.currentLat ?? 0).toFixed(4),
+          Number(c.currentLng ?? c.ambulance.currentLng ?? 0).toFixed(4),
+          c.hospital.latitude,
+          c.hospital.longitude,
+        ]),
+      ),
+    [data?.activeCorridors],
+  );
 
   const load = useCallback(async () => {
     if (!cityId) return;
@@ -90,6 +128,39 @@ export default function SafeCityDashboard() {
   useEffect(() => { if (ready && cityId) load(); }, [ready, cityId, load]);
   useSocket(load);
 
+  // Road-following routes via OSRM (same as driver app); refresh when positions change
+  useEffect(() => {
+    let cancelled = false;
+    async function buildRoutes() {
+      if (!data?.activeCorridors?.length) {
+        setRoutes([]);
+        return;
+      }
+      const built = await Promise.all(
+        data.activeCorridors.map(async (c, i) => {
+          const from = corridorFrom(c, i, mapView.center);
+          const to = corridorTo(c);
+          if (!to) {
+            return {
+              id: `route-${c.id}`,
+              positions: [from] as [number, number][],
+              color: c.ambulance.provider?.color || '#0056b3',
+            };
+          }
+          const path = await getLiveRoute(from, to);
+          return {
+            id: `route-${c.id}`,
+            positions: path.length >= 2 ? path : [from, to],
+            color: c.ambulance.provider?.color || '#0056b3',
+          };
+        }),
+      );
+      if (!cancelled) setRoutes(built.filter((r) => r.positions.length >= 2));
+    }
+    void buildRoutes();
+    return () => { cancelled = true; };
+  }, [data?.activeCorridors, mapView.center, routeFingerprint]);
+
   if (!ready || cityLoading || (cityId && !data && !error)) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -102,46 +173,31 @@ export default function SafeCityDashboard() {
     return <div className="min-h-screen flex items-center justify-center text-error">{error || 'No data'}</div>;
   }
 
-  const markers: MapMarker[] = data.activeCorridors.map((c, i) => {
-    const lat =
-      parseCoord(c.currentLat) ??
-      parseCoord(c.ambulance.currentLat) ??
-      parseCoord(c.originLat) ??
-      fallbackPosition(i)[0];
-    const lng =
-      parseCoord(c.currentLng) ??
-      parseCoord(c.ambulance.currentLng) ??
-      parseCoord(c.originLng) ??
-      fallbackPosition(i)[1];
-    return {
-      id: c.id,
+  const markers: MapMarker[] = [];
+  data.activeCorridors.forEach((c, i) => {
+    const [lat, lng] = corridorFrom(c, i, mapView.center);
+    markers.push({
+      id: `unit-${c.id}`,
       lat,
       lng,
       label: c.transitId,
       color: c.ambulance.provider?.color || '#d93343',
       shape: c.ambulance.provider?.shape || 'circle',
-      sublabel: `${c.ambulance.unitNumber} → ${c.hospital.name}`,
-    };
-  });
+      sublabel: `${c.ambulance.unitNumber} · live`,
+    });
 
-  const routes: MapRoute[] = data.activeCorridors.map((c, i) => {
-    const fromLat =
-      parseCoord(c.currentLat) ??
-      parseCoord(c.ambulance.currentLat) ??
-      parseCoord(c.originLat) ??
-      fallbackPosition(i)[0];
-    const fromLng =
-      parseCoord(c.currentLng) ??
-      parseCoord(c.ambulance.currentLng) ??
-      parseCoord(c.originLng) ??
-      fallbackPosition(i)[1];
-    const toLat = parseCoord(c.hospital.latitude) ?? LAHORE_CENTER[0];
-    const toLng = parseCoord(c.hospital.longitude) ?? LAHORE_CENTER[1];
-    return {
-      id: `route-${c.id}`,
-      positions: [[fromLat, fromLng], [toLat, toLng]],
-      color: c.ambulance.provider?.color || '#0056b3',
-    };
+    const dest = corridorTo(c);
+    if (dest) {
+      markers.push({
+        id: `hospital-${c.id}`,
+        lat: dest[0],
+        lng: dest[1],
+        label: c.hospital.name,
+        color: '#0f766e',
+        shape: 'hospital',
+        sublabel: 'Destination hospital',
+      });
+    }
   });
 
   return (
@@ -152,6 +208,11 @@ export default function SafeCityDashboard() {
           <h2 className="text-xs font-bold uppercase text-primary mb-4 flex items-center gap-2">
             <span className="material-symbols-outlined text-[16px]">route</span>
             Ongoing Corridors Grid
+            {currentCity && (
+              <span className="ml-auto normal-case tracking-normal font-semibold text-on-surface-variant">
+                {currentCity.name}
+              </span>
+            )}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {data.activeCorridors.map((c) => <CorridorCard key={c.id} corridor={c} />)}
@@ -162,17 +223,27 @@ export default function SafeCityDashboard() {
         </section>
 
         <section className="flex-1 min-w-0 relative overflow-hidden">
-          <OsmMap center={LAHORE_CENTER} zoom={12} markers={markers} routes={routes} className="h-full w-full" />
+          <OsmMap
+            center={mapView.center}
+            zoom={mapView.zoom}
+            markers={markers}
+            routes={routes}
+            fitToMarkers={markers.length >= 2}
+            className="h-full w-full"
+          />
           <div className="absolute top-4 left-4 z-[1000] glass-panel px-3 py-1.5 rounded border border-outline-variant">
-            <p className="text-[10px] font-bold text-primary uppercase">Live Route Coordination — OpenStreetMap</p>
+            <p className="text-[10px] font-bold text-primary uppercase">
+              Live Route Coordination — {currentCity?.name || 'City'} (OSM + OSRM)
+            </p>
           </div>
 
           <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur p-4 rounded border border-outline-variant shadow-lg space-y-2 z-[1000]">
-            <p className="text-xs font-bold uppercase text-on-surface-variant mb-2">Fleet Legend</p>
-            <div className="flex items-center gap-2 text-sm"><div className="w-3 h-3 bg-[#d93343] rounded-full" /> Rescue 1122</div>
-            <div className="flex items-center gap-2 text-sm"><div className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent border-b-[#f59e0b]" /> Edhi</div>
-            <div className="flex items-center gap-2 text-sm"><div className="w-3 h-3 bg-[#2563eb]" /> Chhipa</div>
-            <div className="flex items-center gap-2 text-sm"><div className="w-3 h-3 bg-[#16a34a] rotate-45" /> Al-Khidmat</div>
+            <p className="text-xs font-bold uppercase text-on-surface-variant mb-2">Map Legend</p>
+            <div className="flex items-center gap-2 text-sm"><div className="w-3 h-3 bg-[#d93343] rounded-full" /> Live ambulance</div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="inline-flex w-4 h-4 items-center justify-center border-2 border-teal-700 rounded text-teal-700 text-[10px] font-black">+</span>
+              Hospital destination
+            </div>
           </div>
         </section>
       </main>

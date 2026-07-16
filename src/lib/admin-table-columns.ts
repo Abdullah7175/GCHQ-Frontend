@@ -44,6 +44,14 @@ export const ADMIN_TABLE_COLUMNS: Record<string, AdminColumnDef[]> = {
     { key: 'code', label: 'Code', value: (i) => i.code },
     { key: 'province', label: 'Province', value: (i) => i.province },
     { key: 'country', label: 'Country', value: (i) => i.country },
+    {
+      key: 'mapCenter',
+      label: 'Map center',
+      value: (i) =>
+        i.mapCenterLat != null && i.mapCenterLng != null
+          ? `${Number(i.mapCenterLat).toFixed(4)}, ${Number(i.mapCenterLng).toFixed(4)}`
+          : '—',
+    },
     { key: 'isActive', label: 'Active', value: (i) => (i.isActive ? 'Yes' : 'No') },
   ],
   providers: [
@@ -116,7 +124,7 @@ export const ADMIN_TABLE_COLUMNS: Record<string, AdminColumnDef[]> = {
     { key: 'transitId', label: 'Case ID', value: (i) => i.transitId },
     { key: 'status', label: 'Status', value: (i) => i.status },
     { key: 'city', label: 'City', value: (i, refs) => relLabel(i, 'city', 'cityId', refs, 'cities') },
-    { key: 'ambulance', label: 'Unit', value: (i) => relLabel(i, 'ambulance', 'ambulanceId', refs) },
+    { key: 'ambulance', label: 'Unit', value: (i, refs) => relLabel(i, 'ambulance', 'ambulanceId', refs) },
     { key: 'hospital', label: 'Hospital', value: (i, refs) => relLabel(i, 'hospital', 'hospitalId', refs, 'hospitals') },
     { key: 'sector', label: 'Sector', value: (i, refs) => relLabel(i, 'sector', 'sectorId', refs, 'sectors') },
     {

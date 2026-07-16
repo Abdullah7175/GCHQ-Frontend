@@ -20,6 +20,9 @@ export interface City {
   province?: string;
   country?: string;
   isActive: boolean;
+  mapCenterLat?: number | null;
+  mapCenterLng?: number | null;
+  mapDefaultZoom?: number | null;
   operationalConfig: CityOperationalConfig;
 }
 

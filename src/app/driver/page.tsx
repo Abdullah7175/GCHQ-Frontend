@@ -5,7 +5,7 @@ import { api, cityQuery, getStoredUser } from '@/lib/api';
 import { useAuthGuard } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
-import { MapMarker, MapRoute, parseCoord, LAHORE_CENTER } from '@/components/map-types';
+import { MapMarker, MapRoute, parseCoord, resolveCityMapView } from '@/components/map-types';
 import { getLiveRoute } from '@/lib/demo-route';
 import { BrandLogo } from '@/components/BrandLogo';
 
@@ -49,7 +49,7 @@ const GPS_INTERVAL_MS = 15_000;
 
 export default function DriverApp() {
   const { user, ready } = useAuthGuard('paramedic');
-  const { cityId, loading: cityLoading } = useCityContext();
+  const { cityId, currentCity, loading: cityLoading } = useCityContext();
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [emergencyTypes, setEmergencyTypes] = useState<EmergencyType[]>([]);
   const [triageCodes, setTriageCodes] = useState<TriageCode[]>([]);
@@ -269,8 +269,9 @@ export default function DriverApp() {
     setMessage('');
     try {
       const hospital = hospitals.find((h) => h.id === hospitalId);
-      const originLat = deviceLocation?.[0] ?? parseCoord(ambulance.currentLat) ?? LAHORE_CENTER[0] + 0.02;
-      const originLng = deviceLocation?.[1] ?? parseCoord(ambulance.currentLng) ?? LAHORE_CENTER[1] - 0.02;
+      const cityMap = resolveCityMapView(currentCity);
+      const originLat = deviceLocation?.[0] ?? parseCoord(ambulance.currentLat) ?? cityMap.center[0] + 0.02;
+      const originLng = deviceLocation?.[1] ?? parseCoord(ambulance.currentLng) ?? cityMap.center[1] - 0.02;
 
       const transit = await api<Transit>('/transits', {
         method: 'POST',
@@ -366,7 +367,7 @@ export default function DriverApp() {
       lng: destination[1],
       label: activeTransit?.hospital.name || 'Hospital',
       color: '#0056b3',
-      shape: 'square',
+      shape: 'hospital',
       sublabel: 'Destination hospital',
     });
   }
@@ -375,7 +376,7 @@ export default function DriverApp() {
     : currentPos && destination
       ? [{ id: 'live-route', positions: [currentPos, destination], color: '#0056b3' }]
       : [];
-  const mapCenter: [number, number] = currentPos || LAHORE_CENTER;
+  const mapCenter: [number, number] = currentPos || resolveCityMapView(currentCity).center;
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">

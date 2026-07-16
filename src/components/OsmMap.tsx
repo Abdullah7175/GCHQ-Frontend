@@ -14,6 +14,7 @@ export function OsmMap(props: {
   markers?: MapMarker[];
   routes?: MapRoute[];
   className?: string;
+  fitToMarkers?: boolean;
   onMarkerClick?: (id: string) => void;
 }) {
   return <OsmMapInner {...props} />;

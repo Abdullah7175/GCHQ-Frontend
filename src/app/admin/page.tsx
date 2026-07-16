@@ -165,8 +165,16 @@ export default function AdminPage() {
     switch (active) {
       case 'cities': {
         const cfg = getCityConfig(form);
-        return { name: form.name, code: String(form.code || '').toUpperCase(), province: form.province || undefined, country: form.country || 'Pakistan',
-          operationalConfig: { ...cfg, transitIdPrefix: cfg.transitIdPrefix || String(form.code || '').toUpperCase() } };
+        return {
+          name: form.name,
+          code: String(form.code || '').toUpperCase(),
+          province: form.province || undefined,
+          country: form.country || 'Pakistan',
+          mapCenterLat: form.mapCenterLat !== '' && form.mapCenterLat != null ? Number(form.mapCenterLat) : undefined,
+          mapCenterLng: form.mapCenterLng !== '' && form.mapCenterLng != null ? Number(form.mapCenterLng) : undefined,
+          mapDefaultZoom: form.mapDefaultZoom != null && form.mapDefaultZoom !== '' ? Number(form.mapDefaultZoom) : 12,
+          operationalConfig: { ...cfg, transitIdPrefix: cfg.transitIdPrefix || String(form.code || '').toUpperCase() },
+        };
       }
       case 'providers':
         return { name: form.name, code: String(form.code || '').toUpperCase(), shape: form.shape || 'circle', color: form.color || '#d93343', description: form.description || undefined };
@@ -495,6 +503,15 @@ export default function AdminPage() {
                       </FormField>
                       <FormField label="Province">
                         <TextInput value={(form.province as string) || ''} onChange={(v) => setForm({ ...form, province: v })} placeholder="Sindh" />
+                      </FormField>
+                      <FormField label="Map Center Latitude" hint="Safe City / HQ default map center">
+                        <TextInput type="number" value={form.mapCenterLat != null ? String(form.mapCenterLat) : ''} onChange={(v) => setForm({ ...form, mapCenterLat: v })} placeholder="24.8607" />
+                      </FormField>
+                      <FormField label="Map Center Longitude">
+                        <TextInput type="number" value={form.mapCenterLng != null ? String(form.mapCenterLng) : ''} onChange={(v) => setForm({ ...form, mapCenterLng: v })} placeholder="67.0011" />
+                      </FormField>
+                      <FormField label="Map Zoom" hint="Typical 11–14">
+                        <TextInput type="number" value={form.mapDefaultZoom != null ? String(form.mapDefaultZoom) : '12'} onChange={(v) => setForm({ ...form, mapDefaultZoom: v })} />
                       </FormField>
                       <FormField label="Max Concurrent Corridors" hint="Active green corridors allowed at once">
                         <TextInput type="number" value={cityCfg.maxConcurrentTransits} onChange={(v) => setForm({ ...form, operationalConfig: { ...cityCfg, maxConcurrentTransits: Number(v) } })} />

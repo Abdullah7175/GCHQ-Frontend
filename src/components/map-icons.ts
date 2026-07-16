@@ -42,6 +42,16 @@ function fleetMarkerHtml(shape: string, color: string, size: number): string {
       return `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;${shadow}">
         <svg width="${size}" height="${size}" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="18" fill="${color}" stroke="#ffffff" stroke-width="1"/><rect x="3" y="9" width="18" height="6" fill="${color}" stroke="#ffffff" stroke-width="1"/></svg>
       </div>`;
+    case 'hospital':
+    case 'plus':
+      return `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;${shadow}">
+        <div style="width:${size}px;height:${size}px;background:#ffffff;border:2px solid ${color};border-radius:6px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
+          <svg width="${Math.round(size * 0.72)}" height="${Math.round(size * 0.72)}" viewBox="0 0 24 24">
+            <rect x="10" y="4" width="4" height="16" rx="1" fill="${color}"/>
+            <rect x="4" y="10" width="16" height="4" rx="1" fill="${color}"/>
+          </svg>
+        </div>
+      </div>`;
     default:
       return `<div style="width:${size}px;height:${size}px;background:${color};border:${border};border-radius:50%;box-sizing:border-box;${shadow}"></div>`;
   }
