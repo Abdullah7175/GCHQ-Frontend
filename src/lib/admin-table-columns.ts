@@ -96,9 +96,54 @@ export const ADMIN_TABLE_COLUMNS: Record<string, AdminColumnDef[]> = {
     { key: 'provider', label: 'Provider', value: (i, refs) => relLabel(i, 'provider', 'providerId', refs, 'providers') },
     { key: 'status', label: 'Status', value: (i) => i.status },
     { key: 'driver', label: 'Driver', value: (i, refs) => relLabel(i, 'driver', 'driverId', refs) },
-    { key: 'currentLat', label: 'Lat', value: (i) => i.currentLat },
-    { key: 'currentLng', label: 'Lng', value: (i) => i.currentLng },
-    { key: 'currentSpeed', label: 'Speed', value: (i) => i.currentSpeed },
+    {
+      key: 'currentLat',
+      label: 'Lat',
+      value: (i) => (i.currentLat != null && i.currentLat !== '' ? Number(i.currentLat).toFixed(6) : null),
+    },
+    {
+      key: 'currentLng',
+      label: 'Lng',
+      value: (i) => (i.currentLng != null && i.currentLng !== '' ? Number(i.currentLng).toFixed(6) : null),
+    },
+    {
+      key: 'currentSpeed',
+      label: 'Speed',
+      value: (i) => (i.currentSpeed != null && i.currentSpeed !== '' ? Number(i.currentSpeed).toFixed(2) : '0.00'),
+    },
+  ],
+  transits: [
+    { key: 'transitId', label: 'Case ID', value: (i) => i.transitId },
+    { key: 'status', label: 'Status', value: (i) => i.status },
+    { key: 'city', label: 'City', value: (i, refs) => relLabel(i, 'city', 'cityId', refs, 'cities') },
+    { key: 'ambulance', label: 'Unit', value: (i) => relLabel(i, 'ambulance', 'ambulanceId', refs) },
+    { key: 'hospital', label: 'Hospital', value: (i, refs) => relLabel(i, 'hospital', 'hospitalId', refs, 'hospitals') },
+    { key: 'sector', label: 'Sector', value: (i, refs) => relLabel(i, 'sector', 'sectorId', refs, 'sectors') },
+    {
+      key: 'triage',
+      label: 'Triage',
+      value: (i) => {
+        const t = i.triageCode as Entity | null | undefined;
+        return t?.code || t?.name || '—';
+      },
+    },
+    {
+      key: 'emergency',
+      label: 'Emergency',
+      value: (i) => {
+        const e = i.emergencyType as Entity | null | undefined;
+        return e?.name || e?.code || '—';
+      },
+    },
+    {
+      key: 'claimedBy',
+      label: 'Claimed by',
+      value: (i) => {
+        const u = i.claimedBy as Entity | null | undefined;
+        return u?.name || '—';
+      },
+    },
+    { key: 'etaMinutes', label: 'ETA', value: (i) => (i.etaMinutes != null ? `${i.etaMinutes}m` : '—') },
   ],
 };
 

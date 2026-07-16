@@ -33,7 +33,10 @@ const RESOURCES = [
   { key: 'triage-codes',    label: 'Triage Codes',    icon: 'label',           hint: 'Priority codes (Code Red, etc.)' },
   { key: 'users',           label: 'Users',           icon: 'group',           hint: 'Staff accounts by role' },
   { key: 'ambulances',      label: 'Ambulances',      icon: 'ambulance',       hint: 'Register units & assign drivers' },
+  { key: 'transits',        label: 'Ongoing Cases',   icon: 'emergency_share', hint: 'Active corridors — delete to free drivers/units' },
 ];
+
+const READ_ONLY_RESOURCES = new Set(['transits']);
 
 const CITY_SCOPED = ['hospitals', 'sectors', 'ambulances'];
 
@@ -71,7 +74,10 @@ function CellValue({ col, value }: { col: string; value: unknown }) {
     );
   }
   if (col === 'status') {
-    const map: Record<string, string> = { available: 'pill-green', en_route: 'pill-blue', busy: 'pill-amber', offline: 'pill-grey' };
+    const map: Record<string, string> = {
+      available: 'pill-green', en_route: 'pill-blue', busy: 'pill-amber', offline: 'pill-grey',
+      pending: 'pill-amber', arrived: 'pill-green', completed: 'pill-grey', cancelled: 'pill-grey',
+    };
     return <span className={`pill ${map[str] || 'pill-grey'}`}>{str.replace('_', ' ')}</span>;
   }
   if (col === 'role') {
@@ -101,14 +107,26 @@ export default function AdminPage() {
 
   const formCityId = (form.cityId as string) || navCityId || refs.cities[0]?.id || '';
 
+  function asList(res: unknown): Entity[] {
+    if (Array.isArray(res)) return res;
+    if (res && typeof res === 'object' && Array.isArray((res as { data?: Entity[] }).data)) {
+      return (res as { data: Entity[] }).data;
+    }
+    return [];
+  }
+
   const loadRefs = useCallback(async () => {
     const cities = await fetchAllCities();
-    const [providers, users, hospitals, sectors] = await Promise.all([
-      api<Entity[]>('/providers'),
-      api<Entity[]>('/users'),
-      api<Entity[]>('/hospitals'),
-      api<Entity[]>('/sectors'),
+    const [providersRes, usersRes, hospitalsRes, sectorsRes] = await Promise.all([
+      api<unknown>('/providers'),
+      api<unknown>('/users?page=1&limit=500'),
+      api<unknown>('/hospitals'),
+      api<unknown>('/sectors'),
     ]);
+    const providers = asList(providersRes);
+    const users = asList(usersRes);
+    const hospitals = asList(hospitalsRes);
+    const sectors = asList(sectorsRes);
     setRefs({
       cities,
       providers,
@@ -164,12 +182,23 @@ export default function AdminPage() {
         return { name: form.name, code: String(form.code || '').toUpperCase(), description: form.description || undefined, severityLevel: Number(form.severityLevel) || 3 };
       case 'triage-codes':
         return { name: form.name, code: String(form.code || '').toUpperCase(), color: form.color || '#ba1a1a', priority: Number(form.priority) || 1, description: form.description || undefined };
-      case 'users':
-        return { name: form.name, email: form.email, ...(form.password ? { password: MD5(String(form.password)).toString() } : {}), role: form.role || 'hospital',
-          cityId: form.cityId || undefined, hospitalId: form.role === 'hospital' ? form.hospitalId || undefined : undefined,
-          providerId: form.role === 'paramedic' ? form.providerId || undefined : undefined,
-          permittedProviderIds: (form.role === 'hq_1122' || form.role === 'safe_city') ? form.permittedProviderIds || undefined : undefined,
-          apiKey: form.apiKey || undefined };
+      case 'users': {
+        const role = (form.role as string) || 'hospital';
+        if (role === 'hospital' && !form.hospitalId) {
+          // keep payload building; validation happens in handleSave
+        }
+        return {
+          name: form.name,
+          email: form.email,
+          ...(form.password ? { password: MD5(String(form.password)).toString() } : {}),
+          role,
+          cityId: form.cityId || undefined,
+          hospitalId: role === 'hospital' ? form.hospitalId || undefined : undefined,
+          providerId: role === 'paramedic' ? form.providerId || undefined : undefined,
+          permittedProviderIds: (role === 'hq_1122' || role === 'safe_city') ? form.permittedProviderIds || undefined : undefined,
+          apiKey: form.apiKey || undefined,
+        };
+      }
       case 'ambulances':
         return { unitNumber: form.unitNumber, cityId: form.cityId || formCityId, providerId: form.providerId, status: form.status || 'available',
           driverId: form.driverId || undefined, currentLat: form.currentLat ? Number(form.currentLat) : undefined,
@@ -182,6 +211,10 @@ export default function AdminPage() {
     e.preventDefault(); setSaveError('');
     try {
       const payload = buildPayload();
+      if (active === 'users' && payload.role === 'hospital' && !payload.hospitalId) {
+        setSaveError('Please select an assigned hospital for Hospital ER Staff.');
+        return;
+      }
       if (editingId) await api(`/${active}/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
       else {
         if (active === 'users' && !payload.password) { setSaveError('Password is required for new users.'); return; }
@@ -192,13 +225,27 @@ export default function AdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this record?')) return;
+    const msg = active === 'transits'
+      ? 'Delete this ongoing case? The ambulance will be freed.'
+      : 'Delete this record?';
+    if (!confirm(msg)) return;
     try { await api(`/${active}/${id}`, { method: 'DELETE' }); await refreshAll(); }
     catch (err) { setLoadError(err instanceof Error ? err.message : 'Delete failed'); }
   }
 
-  const sectorsForCity        = refs.sectors.filter((s) => s.cityId === (form.cityId || formCityId));
-  const hospitalsForCity      = refs.hospitals.filter((h) => h.cityId === (form.cityId || formCityId));
+  const sectorsForCity = refs.sectors.filter((s) => !form.cityId && !formCityId ? true : s.cityId === (form.cityId || formCityId));
+  const hospitalsForCity = refs.hospitals.filter((h) => {
+    const cid = (form.cityId as string) || formCityId;
+    if (!cid) return true;
+    return h.cityId === cid;
+  });
+  const hospitalOptions = (hospitalsForCity.length > 0 ? hospitalsForCity : refs.hospitals).map((h) => {
+    const cityName = refs.cities.find((c) => c.id === h.cityId)?.name;
+    return {
+      value: h.id as string,
+      label: cityName ? `${h.name as string} (${cityName})` : (h.name as string),
+    };
+  });
   const paramedicsForProvider = refs.paramedics.filter((p) => !form.providerId || p.providerId === form.providerId);
   const activeResource        = RESOURCES.find((r) => r.key === active);
   const cityCfg               = getCityConfig(form);
@@ -296,10 +343,12 @@ export default function AdminPage() {
               <button type="button" onClick={refreshAll} className="btn-ghost text-xs px-3 py-2">
                 <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
               </button>
-              <button type="button" onClick={openNew} className="btn-primary text-xs px-4 py-2">
-                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
-                New {activeResource?.label}
-              </button>
+              {!READ_ONLY_RESOURCES.has(active) && (
+                <button type="button" onClick={openNew} className="btn-primary text-xs px-4 py-2">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
+                  New {activeResource?.label}
+                </button>
+              )}
             </div>
           </div>
 
@@ -329,7 +378,9 @@ export default function AdminPage() {
                       ))}
                       <td>
                         <div className="flex items-center gap-1.5">
-                          <button type="button" onClick={() => startEdit(item)} className="btn-edit">Edit</button>
+                          {!READ_ONLY_RESOURCES.has(active) && (
+                            <button type="button" onClick={() => startEdit(item)} className="btn-edit">Edit</button>
+                          )}
                           <button type="button" onClick={() => handleDelete(item.id as string)} className="btn-danger-ghost">Del</button>
                         </div>
                       </td>
@@ -359,10 +410,12 @@ export default function AdminPage() {
                             <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#86efac' }}>table_rows</span>
                           </div>
                           <p className="text-sm font-semibold text-gray-400">No {activeResource?.label} yet</p>
-                          <button type="button" onClick={openNew} className="btn-primary text-xs px-4 py-2">
-                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
-                            Create first {activeResource?.label?.slice(0, -1)}
-                          </button>
+                          {!READ_ONLY_RESOURCES.has(active) && (
+                            <button type="button" onClick={openNew} className="btn-primary text-xs px-4 py-2">
+                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
+                              Create first {activeResource?.label?.slice(0, -1)}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -576,36 +629,51 @@ export default function AdminPage() {
                       <FormField label="Role" required>
                         <SelectInput value={(form.role as string) || 'hospital'} onChange={(v) => setForm({ ...form, role: v, hospitalId: '', providerId: '' })} options={USER_ROLE_OPTIONS} />
                       </FormField>
-                      <FormField label="City" hint="Leave empty for Admin / VVIP">
+                      <FormField label="City" hint="Required for Hospital / Paramedic / HQ / Safe City">
                         <SelectInput value={(form.cityId as string) || ''} onChange={(v) => setForm({ ...form, cityId: v, hospitalId: '' })} options={cityOptions(refs.cities)} placeholder="Select city…" />
                       </FormField>
-                      {form.role === 'hospital' && (
-                        <FormField label="Assigned Hospital" required>
-                          <SelectInput value={(form.hospitalId as string) || ''} onChange={(v) => setForm({ ...form, hospitalId: v })}
-                            options={hospitalsForCity.map((h) => ({ value: h.id as string, label: h.name as string }))} placeholder="Select hospital…" required />
+                      {((form.role as string) || 'hospital') === 'hospital' && (
+                        <FormField
+                          label="Assigned Hospital"
+                          required
+                          hint={
+                            hospitalOptions.length === 0
+                              ? 'No hospitals found — create a hospital for this city first'
+                              : hospitalsForCity.length === 0
+                                ? 'No hospitals in selected city — showing all hospitals'
+                                : 'Hospital this ER user can access'
+                          }
+                        >
+                          <SelectInput
+                            value={(form.hospitalId as string) || ''}
+                            onChange={(v) => setForm({ ...form, hospitalId: v })}
+                            options={hospitalOptions}
+                            placeholder="Select hospital…"
+                            required
+                          />
                         </FormField>
                       )}
-                      {form.role === 'paramedic' && (
+                      {(form.role as string) === 'paramedic' && (
                         <FormField label="Fleet Provider" required>
                           <SelectInput value={(form.providerId as string) || ''} onChange={(v) => setForm({ ...form, providerId: v })}
                             options={refs.providers.map((p) => ({ value: p.id as string, label: p.name as string }))} placeholder="Select provider…" required />
                         </FormField>
                       )}
-                      {(form.role === 'hq_1122' || form.role === 'safe_city') && (
+                      {((form.role as string) === 'hq_1122' || (form.role as string) === 'safe_city') && (
                         <FormField label="Permitted Fleet Providers" hint="Leave empty to allow viewing ALL providers">
                           <div className="space-y-2 mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto">
                             {refs.providers.map((p) => {
                               const selected = (form.permittedProviderIds as string[] || []).includes(p.id as string);
                               return (
                                 <label key={p.id as string} className="flex items-center gap-2 text-sm text-slate-700 font-medium cursor-pointer">
-                                  <input 
-                                    type="checkbox" 
+                                  <input
+                                    type="checkbox"
                                     className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
                                     checked={selected}
                                     onChange={(e) => {
                                       const prev = (form.permittedProviderIds as string[] || []);
-                                      const next = e.target.checked 
-                                        ? [...prev, p.id as string] 
+                                      const next = e.target.checked
+                                        ? [...prev, p.id as string]
                                         : prev.filter(id => id !== p.id);
                                       setForm({ ...form, permittedProviderIds: next });
                                     }}

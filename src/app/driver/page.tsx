@@ -7,6 +7,7 @@ import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
 import { MapMarker, MapRoute, parseCoord, LAHORE_CENTER } from '@/components/map-types';
 import { getLiveRoute } from '@/lib/demo-route';
+import { BrandLogo } from '@/components/BrandLogo';
 
 interface Hospital {
   id: string;
@@ -379,16 +380,20 @@ export default function DriverApp() {
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       <header className="bg-primary text-on-primary p-4 shadow-md">
-        <div className="flex justify-between items-center max-w-lg mx-auto">
-          <div>
-            <h1 className="text-xl font-bold">Ambulance Dispatch</h1>
-            <p className="text-sm opacity-90">{user?.name || getStoredUser()?.name} | {ambulance?.unitNumber || 'No unit'}</p>
-            <p className="text-[11px] opacity-80">
-              GPS {watchingLocation ? 'LIVE' : 'OFF'} · sync every 15s
-              {lastGpsOkAt ? ` · last sent ${new Date(lastGpsOkAt).toLocaleTimeString()}` : ''}
-            </p>
+        <div className="flex justify-between items-center max-w-lg mx-auto gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandLogo size={44} />
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold leading-none">GCHQ</h1>
+              <p className="text-[11px] opacity-90 mt-0.5">Green Corridor Headquarters</p>
+              <p className="text-sm opacity-90 truncate">{user?.name || getStoredUser()?.name} | {ambulance?.unitNumber || 'No unit'}</p>
+              <p className="text-[11px] opacity-80">
+                GPS {watchingLocation ? 'LIVE' : 'OFF'} · sync every 15s
+                {lastGpsOkAt ? ` · last sent ${new Date(lastGpsOkAt).toLocaleTimeString()}` : ''}
+              </p>
+            </div>
           </div>
-          <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="text-sm opacity-80">
+          <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="text-sm opacity-80 shrink-0">
             Logout
           </button>
         </div>

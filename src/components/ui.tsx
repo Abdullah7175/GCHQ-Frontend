@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { logout, getStoredUser } from '@/lib/api';
 import { CitySelector } from '@/components/CitySelector';
 import { useCityContext } from '@/lib/city-context';
+import { BrandLogo } from '@/components/BrandLogo';
 
 // Each role maps to exactly ONE portal — no cross-portal navigation
 const ROLE_PORTAL: Record<string, { label: string; icon: string; href: string }> = {
@@ -33,19 +33,12 @@ export function TopNav({ active }: { active?: string }) {
 
         {/* Logo + current portal only */}
         <div className="flex items-center gap-3 shrink-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: '#16a34a' }}
-          >
-            <span
-              className="material-symbols-outlined text-white"
-              style={{ fontSize: 17, fontVariationSettings: "'FILL' 1" }}
-            >
-              emergency
-            </span>
-          </div>
+          <BrandLogo size={34} />
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-gray-900 tracking-tight">Green Corridor</span>
+            <div>
+              <span className="text-sm font-bold text-gray-900 tracking-tight block leading-none">GCHQ</span>
+              <span className="text-[9px] text-gray-400 font-medium hidden sm:block">Green Corridor Headquarters</span>
+            </div>
             {portal && (
               <>
                 <span className="text-gray-300 font-light">/</span>

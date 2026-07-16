@@ -94,14 +94,55 @@ export default function HospitalDashboard() {
   const [filterIssue, setFilterIssue] = useState('');
 
   const prevQueueIdsRef = useRef<Set<string>>(new Set());
+  const primedRef = useRef(false);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [tick, setTick] = useState(0);
+  const [soundReady, setSoundReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const nextSoundAtRef = useRef(0);
+
+  const playAlertSound = useCallback(async () => {
+    try {
+      const base = audioRef.current ?? new Audio('/alert-sound.mp3');
+      audioRef.current = base;
+      // Clone so overlapping alerts can each play
+      const clip = base.cloneNode(true) as HTMLAudioElement;
+      clip.volume = 1;
+      await clip.play();
+      setSoundReady(true);
+    } catch {
+      setSoundReady(false);
+    }
+  }, []);
+
+  const unlockSound = useCallback(async () => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/alert-sound.mp3');
+        audioRef.current.preload = 'auto';
+      }
+      const a = audioRef.current;
+      a.muted = true;
+      await a.play();
+      a.pause();
+      a.currentTime = 0;
+      a.muted = false;
+      setSoundReady(true);
+    } catch {
+      setSoundReady(false);
+    }
+  }, []);
 
   useEffect(() => {
     audioRef.current = new Audio('/alert-sound.mp3');
     audioRef.current.preload = 'auto';
-  }, []);
+    const unlock = () => { void unlockSound(); };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [unlockSound]);
 
   useEffect(() => {
     if (!ready) return;
@@ -145,51 +186,56 @@ export default function HospitalDashboard() {
     }
   }, [hospitalId]);
 
+  useEffect(() => {
+    primedRef.current = false;
+    prevQueueIdsRef.current = new Set();
+    setAlerts([]);
+  }, [hospitalId]);
+
   useEffect(() => { if (ready && hospitalId) load(); }, [ready, hospitalId, load]);
   useSocket(load);
 
   useEffect(() => {
     if (!data?.incomingQueue) return;
     const currentIds = new Set(data.incomingQueue.map((t) => t.id));
+
+    // First snapshot after hospital load — baseline only, no alerts
+    if (!primedRef.current) {
+      primedRef.current = true;
+      prevQueueIdsRef.current = currentIds;
+      return;
+    }
+
     const prevIds = prevQueueIdsRef.current;
+    const newTransits = data.incomingQueue.filter((t) => !prevIds.has(t.id));
+    if (newTransits.length) {
+      const now = Date.now();
+      setAlerts((prev) => {
+        const existing = new Set(prev.map((item) => item.id));
+        const additions = newTransits
+          .filter((t) => !existing.has(t.id))
+          .map((t) => ({
+            id: t.id,
+            transit: t,
+            expiresAt: now + 60_000,
+          }));
+        return [...prev, ...additions];
+      });
 
-    if (prevIds.size > 0) {
-      const newTransits = data.incomingQueue.filter((t) => !prevIds.has(t.id));
-      if (newTransits.length) {
-        const now = Date.now();
-        setAlerts((prev) => {
-          const existing = new Set(prev.map((item) => item.id));
-          const additions = newTransits
-            .filter((t) => !existing.has(t.id))
-            .map((t, index) => ({
-              id: t.id,
-              transit: t,
-              expiresAt: now + 60000 + index,
-            }));
-          return [...prev, ...additions];
-        });
-
-        newTransits.forEach((_, index) => {
-          const soundDelay = Math.max(0, nextSoundAtRef.current - Date.now()) + index * 1500;
-          nextSoundAtRef.current = Date.now() + soundDelay + 1500;
-          window.setTimeout(() => {
-            const audio = audioRef.current;
-            if (!audio) return;
-            audio.currentTime = 0;
-            audio.play().catch(() => undefined);
-          }, soundDelay);
-        });
-      }
+      newTransits.forEach((_, index) => {
+        window.setTimeout(() => { void playAlertSound(); }, index * 400);
+      });
     }
     prevQueueIdsRef.current = currentIds;
-  }, [data?.incomingQueue]);
+  }, [data?.incomingQueue, playAlertSound]);
 
   useEffect(() => {
     if (!alerts.length) return;
     const timer = window.setInterval(() => {
       const now = Date.now();
+      setTick(now);
       setAlerts((prev) => prev.filter((item) => item.expiresAt > now));
-    }, 1000);
+    }, 250);
     return () => window.clearInterval(timer);
   }, [alerts.length]);
 
@@ -201,6 +247,10 @@ export default function HospitalDashboard() {
       }),
     );
   }, [data?.incomingQueue]);
+
+  function dismissAlert(id: string) {
+    setAlerts((prev) => prev.filter((item) => item.id !== id));
+  }
 
   function handleHospitalChange(id: string) {
     setHospitalId(id);
@@ -353,7 +403,16 @@ export default function HospitalDashboard() {
                     <span className="material-symbols-outlined text-primary">dashboard</span>
                     Ongoing Grid
                   </h4>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    {!soundReady && (
+                      <button
+                        type="button"
+                        onClick={() => void unlockSound()}
+                        className="rounded-lg px-3 py-1.5 text-xs font-bold bg-amber-500 text-white hover:bg-amber-600"
+                      >
+                        Enable alert sound
+                      </button>
+                    )}
                     <select
                       className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
                       value={filterTriage}
@@ -460,33 +519,76 @@ export default function HospitalDashboard() {
       </div>
 
       {alerts.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none p-4 md:p-6">
-          <div className="h-full flex flex-wrap content-start gap-4 overflow-hidden">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="animate-hospital-alert pointer-events-auto bg-white/95 backdrop-blur rounded-2xl shadow-2xl border-4 border-red-600 p-5 w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)]"
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/75 backdrop-blur-sm p-3 sm:p-5 md:p-6">
+          <div className="flex items-center justify-between gap-3 mb-3 shrink-0">
+            <p className="text-white font-extrabold uppercase tracking-wider text-sm sm:text-base">
+              Incoming alerts · {alerts.length}
+            </p>
+            {!soundReady && (
+              <button
+                type="button"
+                onClick={() => void unlockSound()}
+                className="rounded-lg px-3 py-1.5 text-xs font-bold bg-amber-500 text-white"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-red-600">Incoming ambulance</p>
-                    <p className="font-mono font-bold text-xl text-slate-900">{alert.transit.transitId}</p>
+                Enable sound
+              </button>
+            )}
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 content-start h-full auto-rows-fr">
+              {alerts.map((alert) => {
+                const secsLeft = Math.max(0, Math.ceil((alert.expiresAt - (tick || Date.now())) / 1000));
+                return (
+                  <div
+                    key={alert.id}
+                    className="animate-hospital-alert relative flex flex-col bg-white rounded-2xl shadow-2xl border-4 border-red-600 p-5 min-h-[280px]"
+                  >
+                    <button
+                      type="button"
+                      aria-label="Close alert"
+                      onClick={() => dismissAlert(alert.id)}
+                      className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 shadow-lg"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 22 }}>close</span>
+                    </button>
+
+                    <div className="flex items-start justify-between gap-3 pr-12">
+                      <div>
+                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-red-600">Incoming ambulance</p>
+                        <p className="font-mono font-bold text-2xl text-slate-900 mt-1">{alert.transit.transitId}</p>
+                      </div>
+                      <span
+                        className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase text-white shrink-0"
+                        style={{ backgroundColor: alert.transit.triageCode.color }}
+                      >
+                        {alert.transit.triageCode.name}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 space-y-2 text-sm sm:text-base text-slate-700 flex-1">
+                      <p><strong>Ambulance:</strong> {alert.transit.ambulance.unitNumber}</p>
+                      <p><strong>Provider:</strong> {alert.transit.ambulance.provider?.name || '—'}</p>
+                      <p><strong>Emergency:</strong> {alert.transit.emergencyType.name}</p>
+                      <p><strong>Sector:</strong> {alert.transit.sector?.name || '—'}</p>
+                      <p><strong>ETA:</strong> {formatEta(alert.transit.etaMinutes)}</p>
+                      <p className="italic text-slate-500">"{alert.transit.paramedicNotes || 'No notes provided'}"</p>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-red-600">
+                        Auto-close in {secsLeft}s
+                      </p>
+                      <div className="h-1.5 flex-1 max-w-[140px] rounded-full bg-red-100 overflow-hidden">
+                        <div
+                          className="h-full bg-red-600 transition-[width] duration-250 ease-linear"
+                          style={{ width: `${Math.max(0, (secsLeft / 60) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase text-white" style={{ backgroundColor: alert.transit.triageCode.color }}>
-                    {alert.transit.triageCode.name}
-                  </span>
-                </div>
-                <div className="mt-4 space-y-1 text-sm text-slate-700">
-                  <p><strong>Ambulance:</strong> {alert.transit.ambulance.unitNumber}</p>
-                  <p><strong>Emergency:</strong> {alert.transit.emergencyType.name}</p>
-                  <p><strong>ETA:</strong> {formatEta(alert.transit.etaMinutes)}</p>
-                  <p className="italic text-slate-500">"{alert.transit.paramedicNotes || 'No notes provided'}"</p>
-                </div>
-                <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-red-600">
-                  Closing in {Math.max(0, Math.ceil((alert.expiresAt - Date.now()) / 1000))}s
-                </p>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

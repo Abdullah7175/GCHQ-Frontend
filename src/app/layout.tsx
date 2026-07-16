@@ -6,8 +6,12 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
 
 export const metadata: Metadata = {
-  title: 'Green Corridor — Emergency Operations',
-  description: 'Mass Casualty & Ambulance Routing Command System',
+  title: 'GCHQ — Green Corridor Headquarters',
+  description: 'Green Corridor Headquarters — Mass Casualty & Ambulance Routing Command System',
+  icons: {
+    icon: '/gchq-logo.png',
+    apple: '/gchq-logo.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

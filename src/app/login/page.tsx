@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { login, roleRoutes } from '@/lib/api';
 import MD5 from 'crypto-js/md5';
-
-
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default function LoginPage() {
   const [email, setEmail]       = useState('');
@@ -31,19 +30,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 font-sans">
       <div className="w-full max-w-sm animate-fade-in">
-        
-        {/* Logo mark */}
+
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-md shadow-primary/20">
-            <span className="material-symbols-outlined text-[28px] text-white" style={{ fontVariationSettings: "'FILL' 1" }}>
-              emergency
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Green Corridor</h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium">Emergency Operations Command</p>
+          <BrandLogo size={88} className="mb-4" />
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">GCHQ</h1>
+          <p className="text-sm text-slate-500 mt-1.5 font-medium text-center">
+            Green Corridor Headquarters
+          </p>
+          <p className="text-xs text-slate-400 mt-1">Emergency Operations Command</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-2xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
