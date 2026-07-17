@@ -28,6 +28,7 @@ interface Corridor {
   hospital: { name: string; latitude?: number | string | null; longitude?: number | string | null };
   sector: { name: string };
   triageCode: { name: string };
+  emergencyType?: { name: string } | null;
 }
 
 interface SafeCityData {
@@ -89,6 +90,10 @@ function CorridorCard({ corridor }: { corridor: Corridor }) {
           <div className="font-semibold">{corridor.sector?.name || 'N/A'}</div>
         </div>
         <div>
+          <div className="text-[10px] font-mono text-on-surface-variant">EMERGENCY</div>
+          <div className="font-semibold">{corridor.emergencyType?.name || 'N/A'}</div>
+        </div>
+        <div>
           <div className="text-[10px] font-mono text-on-surface-variant">TRIAGE</div>
           <div className="font-semibold">{corridor.triageCode.name}</div>
         </div>
@@ -128,11 +133,12 @@ export default function SafeCityDashboard() {
   const load = useCallback(async () => {
     if (!cityId) return;
     try {
-      setError('');
       const res = await api<{ activeCorridors: Corridor[] }>(`/dashboard/safe-city${cityQuery(cityId)}`);
       setData({ activeCorridors: res.activeCorridors });
+      setError('');
       setLastRefreshAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
+      // Keep showing the last good data; only surface the error if nothing is loaded yet
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
     }
   }, [cityId]);
@@ -188,7 +194,7 @@ export default function SafeCityDashboard() {
     return <div className="min-h-screen flex items-center justify-center text-on-surface-variant">Select a city from the top navigation.</div>;
   }
 
-  if (error || !data) {
+  if (!data) {
     return <div className="min-h-screen flex items-center justify-center text-error">{error || 'No data'}</div>;
   }
 
