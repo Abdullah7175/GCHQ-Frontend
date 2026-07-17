@@ -16,6 +16,7 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
 
   const token = req.cookies.get(COOKIE)?.value;
   if (!token) {
+    console.warn(`[proxy] 401 no session cookie — ${req.method} /${segments.join('/')}`);
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 

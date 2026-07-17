@@ -22,10 +22,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const isHttps =
+    req.nextUrl.protocol === 'https:' ||
+    req.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https';
+
   const res = NextResponse.json({ message: 'Logged out successfully' });
   res.cookies.set(COOKIE, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     sameSite: 'lax',
     path: '/',
     maxAge: 0,

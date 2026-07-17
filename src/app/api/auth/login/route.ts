@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-const IS_PROD = process.env.NODE_ENV === 'production';
 const COOKIE = 'gchq_token';
 
-function cookieOptions(maxAgeSeconds: number) {
+/**
+ * `Secure` cookies are silently discarded by browsers on plain HTTP, which
+ * logs the user straight back out. Only mark the cookie Secure when the site
+ * is actually served over HTTPS (direct or behind a TLS proxy).
+ */
+function isHttps(req: NextRequest): boolean {
+  return (
+    req.nextUrl.protocol === 'https:' ||
+    req.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https'
+  );
+}
+
+function cookieOptions(req: NextRequest, maxAgeSeconds: number) {
   return {
     httpOnly: true,
-    secure: IS_PROD,
+    secure: isHttps(req),
     sameSite: 'lax' as const,
     path: '/',
     maxAge: maxAgeSeconds,
@@ -49,6 +60,7 @@ export async function POST(req: NextRequest) {
 
   const data = await upstream.json().catch(() => ({ message: 'Login failed' }));
   if (!upstream.ok) {
+    console.warn(`[auth] login failed for ${email} — upstream status ${upstream.status}`);
     return NextResponse.json(
       { message: Array.isArray(data.message) ? data.message.join(', ') : data.message || 'Invalid credentials' },
       { status: upstream.status },
@@ -63,6 +75,6 @@ export async function POST(req: NextRequest) {
     tokenType: data.tokenType,
   });
 
-  res.cookies.set(COOKIE, data.accessToken, cookieOptions(8 * 60 * 60));
+  res.cookies.set(COOKIE, data.accessToken, cookieOptions(req, 8 * 60 * 60));
   return res;
 }
