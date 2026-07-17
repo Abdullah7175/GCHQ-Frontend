@@ -28,6 +28,8 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
   };
   const contentType = req.headers.get('content-type');
   if (contentType) headers['Content-Type'] = contentType;
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
+  if (clientIp) headers['X-Forwarded-For'] = clientIp;
 
   const init: RequestInit = {
     method: req.method,

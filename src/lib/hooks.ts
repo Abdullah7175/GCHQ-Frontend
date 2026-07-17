@@ -6,6 +6,8 @@ import { getStoredUser } from './api';
 
 let socket: Socket | null = null;
 
+const REFETCH_THROTTLE_MS = 4_000;
+
 export function useSocket(onRefresh?: () => void) {
   const [connected, setConnected] = useState(false);
 
@@ -13,6 +15,26 @@ export function useSocket(onRefresh?: () => void) {
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
     let cancelled = false;
     let localSocket: Socket | null = null;
+
+    // Leading + trailing throttle: a burst of socket events triggers at most
+    // one refetch now and one at the end of the window (keeps final state fresh).
+    let lastRun = 0;
+    let trailing: number | null = null;
+    const requestRefresh = () => {
+      if (!onRefresh) return;
+      const now = Date.now();
+      const elapsed = now - lastRun;
+      if (elapsed >= REFETCH_THROTTLE_MS) {
+        lastRun = now;
+        onRefresh();
+      } else if (trailing == null) {
+        trailing = window.setTimeout(() => {
+          trailing = null;
+          lastRun = Date.now();
+          onRefresh();
+        }, REFETCH_THROTTLE_MS - elapsed);
+      }
+    };
 
     async function connect() {
       let token: string | undefined;
@@ -37,21 +59,19 @@ export function useSocket(onRefresh?: () => void) {
 
       const handleConnect = () => setConnected(true);
       const handleDisconnect = () => setConnected(false);
-      const handleTransit = () => onRefresh?.();
-      const handleGps = () => onRefresh?.();
-      const handleDashboard = () => onRefresh?.();
 
       localSocket.on('connect', handleConnect);
       localSocket.on('disconnect', handleDisconnect);
-      localSocket.on('transit:update', handleTransit);
-      localSocket.on('gps:update', handleGps);
-      localSocket.on('dashboard:refresh', handleDashboard);
+      localSocket.on('transit:update', requestRefresh);
+      localSocket.on('gps:update', requestRefresh);
+      localSocket.on('dashboard:refresh', requestRefresh);
     }
 
     void connect();
 
     return () => {
       cancelled = true;
+      if (trailing != null) window.clearTimeout(trailing);
       localSocket?.removeAllListeners();
       localSocket?.disconnect();
       if (socket === localSocket) socket = null;

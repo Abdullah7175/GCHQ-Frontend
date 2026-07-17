@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Invalid credentials' }, { status: 400 });
   }
 
+  // Forward the real client IP so backend rate limiting is per user, not per proxy
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '';
+
   let upstream: Response;
   try {
     upstream = await fetch(`${BACKEND}/auth/login`, {
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
+        ...(clientIp ? { 'X-Forwarded-For': clientIp } : {}),
       },
       body: JSON.stringify({ email, password }),
       cache: 'no-store',
