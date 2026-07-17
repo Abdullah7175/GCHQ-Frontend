@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, cityQuery, getStoredUser } from '@/lib/api';
+import { api, cityQuery, getStoredUser, logout } from '@/lib/api';
 import { useAuthGuard } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
@@ -394,7 +394,7 @@ export default function DriverApp() {
               </p>
             </div>
           </div>
-          <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="text-sm opacity-80 shrink-0">
+          <button onClick={async () => { await logout(); window.location.href = '/login'; }} className="text-sm opacity-80 shrink-0">
             Logout
           </button>
         </div>

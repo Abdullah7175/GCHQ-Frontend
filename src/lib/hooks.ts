@@ -11,30 +11,50 @@ export function useSocket(onRefresh?: () => void) {
 
   useEffect(() => {
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
-    if (!socket) {
-      socket = io(wsUrl, { transports: ['websocket', 'polling'] });
+    let cancelled = false;
+    let localSocket: Socket | null = null;
+
+    async function connect() {
+      let token: string | undefined;
+      try {
+        const res = await fetch('/api/auth/ws-token', { credentials: 'same-origin', cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          token = data.token;
+        }
+      } catch {
+        // socket will be rejected server-side without a token
+      }
+      if (cancelled) return;
+
+      localSocket = io(wsUrl, {
+        transports: ['websocket', 'polling'],
+        auth: token ? { token } : undefined,
+        reconnection: true,
+        reconnectionDelay: 2_000,
+      });
+      socket = localSocket;
+
+      const handleConnect = () => setConnected(true);
+      const handleDisconnect = () => setConnected(false);
+      const handleTransit = () => onRefresh?.();
+      const handleGps = () => onRefresh?.();
+      const handleDashboard = () => onRefresh?.();
+
+      localSocket.on('connect', handleConnect);
+      localSocket.on('disconnect', handleDisconnect);
+      localSocket.on('transit:update', handleTransit);
+      localSocket.on('gps:update', handleGps);
+      localSocket.on('dashboard:refresh', handleDashboard);
     }
 
-    const handleConnect = () => setConnected(true);
-    const handleDisconnect = () => setConnected(false);
-    const handleTransit = () => onRefresh?.();
-    const handleGps = () => onRefresh?.();
-    const handleDashboard = () => onRefresh?.();
-
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('transit:update', handleTransit);
-    socket.on('gps:update', handleGps);
-    socket.on('dashboard:refresh', handleDashboard);
-
-    if (socket.connected) setConnected(true);
+    void connect();
 
     return () => {
-      socket?.off('connect', handleConnect);
-      socket?.off('disconnect', handleDisconnect);
-      socket?.off('transit:update', handleTransit);
-      socket?.off('gps:update', handleGps);
-      socket?.off('dashboard:refresh', handleDashboard);
+      cancelled = true;
+      localSocket?.removeAllListeners();
+      localSocket?.disconnect();
+      if (socket === localSocket) socket = null;
     };
   }, [onRefresh]);
 

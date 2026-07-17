@@ -1,4 +1,9 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+/** Browser traffic goes through same-origin BFF so the backend URL/token stay off Network/localStorage. */
+function browserApiBase(): string {
+  return '/api/gchq';
+}
 
 export type UserRole = 'hospital' | 'safe_city' | 'hq_1122' | 'vvip' | 'paramedic' | 'admin';
 
@@ -41,18 +46,13 @@ export interface AuthUser {
   city?: City;
 }
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
-}
-
 export function getSelectedCityId(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('selectedCityId');
+  return sessionStorage.getItem('selectedCityId');
 }
 
 export function setSelectedCityId(cityId: string) {
-  localStorage.setItem('selectedCityId', cityId);
+  sessionStorage.setItem('selectedCityId', cityId);
 }
 
 export function cityQuery(cityId?: string | null): string {
@@ -61,43 +61,80 @@ export function cityQuery(cityId?: string | null): string {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
+  const base = typeof window === 'undefined' ? BACKEND_URL : browserApiBase();
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetch(`${base}${path}`, {
       ...options,
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'X-Requested-With': 'XMLHttpRequest',
         ...options.headers,
       },
     });
-  } catch (e: any) {
-    console.error('Fetch error:', e);
-    throw new Error(`Cannot reach API at ${API_URL}. Is the backend running on port 3001? (Error: ${e.message})`);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Network error';
+    throw new Error(`Cannot reach API. (${message})`);
+  }
+  if (res.status === 401) {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      clearClientSession();
+      window.location.href = '/login';
+    }
+    throw new Error('Session expired — please sign in again');
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     const message = Array.isArray(err.message) ? err.message.join(', ') : (err.message || res.statusText);
     throw new Error(message || 'Request failed');
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
 export async function login(email: string, password: string) {
-  const data = await api<{ user: AuthUser; accessToken: string }>('/auth/login', {
+  // Same-origin endpoint — backend URL and JWT never appear in the browser Network panel as direct calls.
+  const res = await fetch('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
   });
-  localStorage.setItem('token', data.accessToken);
-  localStorage.setItem('user', JSON.stringify(data.user));
+  const data = await res.json().catch(() => ({ message: 'Login failed' }));
+  if (!res.ok) {
+    throw new Error(Array.isArray(data.message) ? data.message.join(', ') : (data.message || 'Invalid credentials'));
+  }
+
+  sessionStorage.setItem('user', JSON.stringify(data.user));
+  // Migrate away from legacy localStorage token storage
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
   if (data.user.cityId) {
     setSelectedCityId(data.user.cityId);
   }
-  return data;
+  return data as { user: AuthUser; expiresIn?: string; tokenType?: string };
 }
 
-export function logout() {
+export async function logout() {
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+  } catch {
+    // ignore network errors on logout
+  }
+  clearClientSession();
+}
+
+function clearClientSession() {
+  sessionStorage.removeItem('user');
+  sessionStorage.removeItem('selectedCityId');
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   localStorage.removeItem('selectedCityId');
@@ -105,8 +142,13 @@ export function logout() {
 
 export function getStoredUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('user');
-  return raw ? JSON.parse(raw) : null;
+  const raw = sessionStorage.getItem('user') || localStorage.getItem('user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
 }
 
 export const roleRoutes: Record<UserRole, string> = {

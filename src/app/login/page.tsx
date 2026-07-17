@@ -78,6 +78,10 @@ export default function LoginPage() {
                 className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all font-medium placeholder:text-slate-400"
                 placeholder="user@domain.pk"
                 required
+                autoComplete="username"
+                maxLength={254}
+                inputMode="email"
+                spellCheck={false}
               />
             </div>
             <div>
@@ -92,6 +96,9 @@ export default function LoginPage() {
                   className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all font-medium placeholder:text-slate-400 pr-12"
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
+                  maxLength={128}
+                  minLength={6}
                 />
                 <button
                   type="button"

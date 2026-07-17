@@ -86,7 +86,7 @@ export function TopNav({ active }: { active?: string }) {
             </span>
           </div>
           <button
-            onClick={() => { logout(); window.location.href = '/login'; }}
+            onClick={async () => { await logout(); window.location.href = '/login'; }}
             className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-xl transition-colors"
             style={{ border: '1px solid rgba(15,122,69,0.14)', background: '#fff' }}
           >
