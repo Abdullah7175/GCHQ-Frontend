@@ -68,16 +68,16 @@ function CorridorCard({ corridor }: { corridor: Corridor }) {
   const eta = useLiveEta(corridor.etaMinutes);
 
   return (
-    <div className="bg-surface p-4 rounded-xl border border-outline-variant relative overflow-hidden shadow-sm">
+    <div className="dash-card p-4 relative overflow-hidden">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <div className="text-[10px] font-mono text-on-surface-variant">AMBULANCE</div>
-          <div className="text-lg font-semibold">{corridor.ambulance.unitNumber}</div>
+          <div className="text-[10px] font-mono text-on-surface-variant tracking-wider">AMBULANCE</div>
+          <div className="text-lg font-semibold text-slate-900">{corridor.ambulance.unitNumber}</div>
           <div className="text-xs text-on-surface-variant">{corridor.ambulance.provider.name}</div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] font-mono text-on-surface-variant">ETA</div>
-          <div className="text-primary font-bold">{eta}</div>
+          <div className="text-[10px] font-mono text-on-surface-variant tracking-wider">ETA</div>
+          <div className="text-primary font-bold text-lg">{eta}</div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -226,11 +226,11 @@ export default function SafeCityDashboard() {
   });
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden ops-shell">
       <TopNav active="/safe-city" />
-      <main className="flex-1 pt-16 flex overflow-hidden bg-surface-container-low">
-        <section className="w-full md:w-[480px] lg:w-[520px] shrink-0 border-r border-outline-variant bg-white p-4 overflow-y-auto custom-scrollbar">
-          <h2 className="text-xs font-bold uppercase text-primary mb-4 flex items-center gap-2">
+      <main className="flex-1 pt-16 flex overflow-hidden">
+        <section className="w-full md:w-[480px] lg:w-[520px] shrink-0 border-r border-outline-variant bg-white/80 backdrop-blur-sm p-4 overflow-y-auto custom-scrollbar">
+          <h2 className="text-xs font-bold uppercase text-primary mb-4 flex items-center gap-2 tracking-wider">
             <span className="material-symbols-outlined text-[16px]">route</span>
             Ongoing Corridors Grid
             {currentCity && (
@@ -256,17 +256,17 @@ export default function SafeCityDashboard() {
             fitToMarkers={markers.length >= 2}
             className="h-full w-full"
           />
-          <div className="absolute top-4 left-4 z-[1000] glass-panel px-3 py-1.5 rounded border border-outline-variant">
-            <p className="text-[10px] font-bold text-primary uppercase">
-              Live Route Coordination — {currentCity?.name || 'City'} (OSM + OSRM)
+          <div className="absolute top-4 left-4 z-[1000] glass-panel px-3 py-2 rounded-xl">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
+              Live Route Coordination — {currentCity?.name || 'City'}
             </p>
             {lastRefreshAt && (
               <p className="text-[10px] text-on-surface-variant mt-0.5">Auto-refresh 15s · last {lastRefreshAt}</p>
             )}
           </div>
 
-          <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur p-4 rounded border border-outline-variant shadow-lg space-y-2 z-[1000]">
-            <p className="text-xs font-bold uppercase text-on-surface-variant mb-2">Map Legend</p>
+          <div className="absolute bottom-6 left-6 glass-panel p-4 rounded-xl space-y-2 z-[1000]">
+            <p className="text-xs font-bold uppercase text-on-surface-variant mb-2 tracking-wider">Map Legend</p>
             <div className="flex items-center gap-2 text-sm"><div className="w-3 h-3 bg-[#d93343] rounded-full" /> Live ambulance</div>
             <div className="flex items-center gap-2 text-sm">
               <span className="inline-flex w-4 h-4 items-center justify-center border-2 border-teal-700 rounded text-teal-700 text-[10px] font-black">+</span>

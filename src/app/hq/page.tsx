@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { TopNav } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
 import { useAuthGuard, useSocket, useLiveEta } from '@/lib/hooks';
@@ -52,10 +53,12 @@ function EmergencyCard({
   const isCritical = transit.triageCode.priority === 1;
 
   return (
-    <div
-      className={`rounded-2xl border p-4 space-y-3 transition-all shadow-sm min-h-[190px] ${
-        isCritical ? 'border-red-300 bg-red-50 animate-pulse' : 'border-red-200 bg-red-50/70'
+    <Link
+      href={`/hq/corridor/${transit.id}`}
+      className={`block p-4 space-y-3 transition-all min-h-[190px] cursor-pointer group ${
+        isCritical ? 'dash-card-critical animate-pulse' : 'dash-card'
       }`}
+      title="Open live map & route for this corridor"
     >
       <div className="flex justify-between items-start">
         <div>
@@ -68,20 +71,24 @@ function EmergencyCard({
         </div>
         <div className="text-right">
           <span className={`text-xl font-semibold ${isCritical ? 'text-error' : 'text-slate-800'}`}>{eta}</span>
-          <p className="text-[10px] text-slate-500 uppercase">ETA</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider">ETA</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isCritical ? 'bg-error-container text-on-error-container' : 'bg-tertiary-container text-on-tertiary-container'}`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isCritical ? 'bg-error-container text-on-error-container' : 'pill-amber'}`}>
           {isCritical ? 'CRITICAL' : 'URGENT'}
         </span>
-        <span className="px-2 py-0.5 bg-white border border-outline-variant rounded text-[10px] font-mono">{transit.emergencyType.name}</span>
+        <span className="px-2 py-0.5 bg-white/80 border border-outline-variant rounded text-[10px] font-mono">{transit.emergencyType.name}</span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>map</span>
+          View route
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
-const selectClass = 'border border-outline-variant rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:border-primary min-w-[120px]';
+const selectClass = 'border border-outline-variant rounded-xl px-2.5 py-1.5 text-xs bg-white/90 focus:outline-none focus:border-primary min-w-[120px] shadow-sm';
 
 export default function HqDashboard() {
   const { ready } = useAuthGuard('hq_1122');
@@ -189,11 +196,11 @@ export default function HqDashboard() {
   const hasFilters = !!(filterHospital || filterSector || filterProvider);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen ops-shell">
       <TopNav active="/hq" />
       <main className="pt-16 px-4 pb-6">
         <div className="py-4 flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-bold uppercase text-on-surface-variant mr-1">Filter</span>
+          <span className="section-kicker mr-1">Filter</span>
           <select
             className={selectClass}
             value={filterHospital}
@@ -238,13 +245,13 @@ export default function HqDashboard() {
 
         {error && <p className="text-sm text-error pb-2">{error}</p>}
 
-        <section className="bg-white border border-outline-variant rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-outline-variant flex items-center justify-between gap-3">
+        <section className="dash-panel overflow-hidden">
+          <div className="dash-panel-header px-5 py-4 flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-semibold">{isOverseer ? 'City Corridors' : 'Sector Corridors'}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{isOverseer ? 'City Corridors' : 'Sector Corridors'}</h3>
               <p className="text-[11px] text-on-surface-variant">{listForPanel.length} ongoing corridors shown{hasFilters ? ' (filtered)' : ''}</p>
             </div>
-            <span className="text-sm font-mono bg-error-container text-on-error-container px-2 py-0.5 rounded">LIVE</span>
+            <span className="live-badge">LIVE</span>
           </div>
 
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">

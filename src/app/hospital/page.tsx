@@ -359,17 +359,17 @@ export default function HospitalDashboard() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-slate-50">
+    <div className="h-screen flex flex-col overflow-hidden ops-shell">
       <TopNav active="/hospital" />
       <div className="flex pt-16 h-full overflow-hidden">
         <style>{`
           @keyframes hospital-alert-pulse {
             0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.95; }
+            50% { transform: scale(1.03); opacity: 0.96; }
           }
           @keyframes matrix-alert-glow {
-            0%, 100% { background-color: #fef2f2; box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
-            50% { background-color: #fee2e2; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18); }
+            0%, 100% { background-color: #fff8f8; box-shadow: 0 0 0 rgba(198, 40, 40, 0); }
+            50% { background-color: #ffefef; box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12); }
           }
           .animate-hospital-alert {
             animation: hospital-alert-pulse 1s infinite ease-in-out;
@@ -382,11 +382,11 @@ export default function HospitalDashboard() {
         <main className="flex-1 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
           {isAdmin && hospitals.length > 0 && (
             <div className="max-w-xs">
-              <label className="text-[10px] font-extrabold uppercase text-primary block mb-2 tracking-wider">Select Hospital</label>
+              <label className="section-kicker block mb-2">Select Hospital</label>
               <select
                 value={hospitalId}
                 onChange={(e) => handleHospitalChange(e.target.value)}
-                className="w-full border border-outline-variant rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-primary font-semibold text-slate-800"
+                className="w-full border border-outline-variant rounded-xl px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-primary font-semibold text-slate-800 shadow-sm"
               >
                 {hospitals.map((h) => (
                   <option key={h.id} value={h.id}>{h.name}</option>
@@ -397,7 +397,7 @@ export default function HospitalDashboard() {
 
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0">
             <section className="flex-[1.45] flex flex-col gap-6 min-w-[340px]">
-              <div className="bg-white rounded-xl border border-outline-variant p-6 shadow-sm">
+              <div className="dash-panel p-6">
                 <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                   <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">dashboard</span>
@@ -440,7 +440,7 @@ export default function HospitalDashboard() {
                   {filteredQueue.map((t) => (
                     <div
                       key={t.id}
-                      className={`rounded-2xl border p-4 shadow-sm min-h-[190px] ${alerts.some((item) => item.id === t.id) ? 'border-red-300 bg-red-50 animate-matrix-alert' : 'border-red-200 bg-red-50 animate-matrix-alert'}`}
+                      className={`dash-card-critical p-4 min-h-[190px] animate-matrix-alert`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -481,8 +481,8 @@ export default function HospitalDashboard() {
             </section>
 
             <section className="w-full lg:w-[330px] xl:w-[320px] shrink-0 flex flex-col gap-6">
-              <div className="bg-white rounded-xl border border-outline-variant overflow-hidden shadow-sm">
-                <div className="px-4 py-3 border-b border-outline-variant bg-slate-50">
+              <div className="dash-panel overflow-hidden">
+                <div className="dash-panel-header px-4 py-3">
                   <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">table_rows</span>
                     Ongoing and Completed Details

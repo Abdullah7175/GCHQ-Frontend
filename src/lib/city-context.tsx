@@ -6,10 +6,8 @@ import { City, fetchCities, getSelectedCityId, getStoredUser, setSelectedCityId 
 export function useCityContext() {
   const user = getStoredUser();
   const [cities, setCities] = useState<City[]>([]);
-  // City-bound roles must always use their assigned city (ignore stale localStorage e.g. Lahore)
-  const lockedCityId = user?.cityId && user.role !== 'admin' && user.role !== 'vvip'
-    ? user.cityId
-    : null;
+  // Any non-admin user with an assigned city is locked to that city (incl. VVIP)
+  const lockedCityId = user?.cityId && user.role !== 'admin' ? user.cityId : null;
   const initialCityId = lockedCityId || getSelectedCityId() || user?.cityId || null;
   const [cityId, setCityId] = useState<string | null>(initialCityId);
   const [loading, setLoading] = useState(true);
@@ -54,7 +52,9 @@ export function useCityContext() {
   }
 
   const currentCity = cities.find((c) => c.id === cityId) ?? null;
-  const canSwitchCity = !lockedCityId && (user?.role === 'admin' || user?.role === 'vvip' || !user?.cityId);
+  // Admin always; VVIP without assigned city can switch for multi-city overview
+  const canSwitchCity =
+    !lockedCityId && (user?.role === 'admin' || (user?.role === 'vvip' && !user?.cityId) || !user?.cityId);
 
   return { cities, cityId, currentCity, selectCity, canSwitchCity, loading };
 }

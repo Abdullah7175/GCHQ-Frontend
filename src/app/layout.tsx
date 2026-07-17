@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Outfit, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
+const plex = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-plex' });
 
 export const metadata: Metadata = {
   title: 'GCHQ — Green Corridor Headquarters',
@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className={`${inter.variable} ${jetbrains.variable} antialiased`}>
+      <body className={`${outfit.variable} ${plex.variable} antialiased`}>
         {children}
       </body>
     </html>

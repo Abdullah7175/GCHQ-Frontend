@@ -24,27 +24,26 @@ export function TopNav({ active }: { active?: string }) {
     <header
       className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center"
       style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e5e7eb',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        background: 'rgba(255,255,255,0.92)',
+        borderBottom: '1px solid rgba(15,122,69,0.12)',
+        boxShadow: '0 8px 24px rgba(15,23,42,0.06)',
+        backdropFilter: 'blur(12px)',
       }}
     >
       <div className="w-full max-w-screen-2xl mx-auto px-5 flex items-center justify-between gap-4">
-
-        {/* Logo + current portal only */}
         <div className="flex items-center gap-3 shrink-0">
           <BrandLogo size={34} />
           <div className="flex items-center gap-2">
             <div>
-              <span className="text-sm font-bold text-gray-900 tracking-tight block leading-none">GCHQ</span>
-              <span className="text-[9px] text-gray-400 font-medium hidden sm:block">Green Corridor Headquarters</span>
+              <span className="text-sm font-bold text-slate-900 tracking-tight block leading-none">GCHQ</span>
+              <span className="text-[9px] text-slate-400 font-medium hidden sm:block">Green Corridor Headquarters</span>
             </div>
             {portal && (
               <>
-                <span className="text-gray-300 font-light">/</span>
+                <span className="text-slate-300 font-light">/</span>
                 <span
-                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md"
-                  style={{ background: '#f0fdf4', color: '#15803d' }}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                  style={{ background: 'linear-gradient(180deg,#e8f7ef,#d9f0e4)', color: '#0f7a45', border: '1px solid rgba(15,122,69,0.18)' }}
                 >
                   <span
                     className="material-symbols-outlined"
@@ -59,38 +58,37 @@ export function TopNav({ active }: { active?: string }) {
           </div>
         </div>
 
-        {/* Right side */}
         <div className="flex items-center gap-2">
           {canSwitchCity && cities.length > 0 && user?.role !== 'admin' && (
             <CitySelector cities={cities} cityId={cityId} onChange={selectCity} />
           )}
           <div
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg"
-            style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl"
+            style={{ background: '#f4faf6', border: '1px solid rgba(15,122,69,0.14)' }}
           >
             <div
               className="w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ background: '#dcfce7' }}
+              style={{ background: '#d9f0e4' }}
             >
               <span
                 className="material-symbols-outlined"
-                style={{ fontSize: 11, color: '#15803d', fontVariationSettings: "'FILL' 1" }}
+                style={{ fontSize: 11, color: '#0f7a45', fontVariationSettings: "'FILL' 1" }}
               >
                 person
               </span>
             </div>
-            <span className="text-xs font-medium text-gray-700">{user?.name}</span>
+            <span className="text-xs font-medium text-slate-700">{user?.name}</span>
             <span
               className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
-              style={{ background: '#f0fdf4', color: '#15803d' }}
+              style={{ background: '#e8f7ef', color: '#0f7a45' }}
             >
               {user?.role?.replace('_', ' ')}
             </span>
           </div>
           <button
             onClick={() => { logout(); window.location.href = '/login'; }}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-red-600 px-3 py-1.5 rounded-lg transition-colors"
-            style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-xl transition-colors"
+            style={{ border: '1px solid rgba(15,122,69,0.14)', background: '#fff' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>logout</span>
             Sign out
@@ -116,24 +114,17 @@ export function StatCard({
   icon?: string;
 }) {
   const styles = {
-    primary:   { bg: '#f0fdf4', text: '#15803d', icon_bg: '#dcfce7', border: '#bbf7d0' },
-    tertiary:  { bg: '#eff6ff', text: '#1d4ed8', icon_bg: '#dbeafe', border: '#93c5fd' },
-    error:     { bg: '#fef2f2', text: '#991b1b', icon_bg: '#fee2e2', border: '#fca5a5' },
-    secondary: { bg: '#fffbeb', text: '#92400e', icon_bg: '#fef3c7', border: '#fcd34d' },
+    primary:   { text: '#0f7a45', icon_bg: '#e8f7ef', border: '#86efac' },
+    tertiary:  { text: '#1d4ed8', icon_bg: '#e8f0fe', border: '#93c5fd' },
+    error:     { text: '#991b1b', icon_bg: '#fde8e8', border: '#fca5a5' },
+    secondary: { text: '#92400e', icon_bg: '#fff4e0', border: '#fcd34d' },
   };
   const s = styles[accent];
 
   return (
-    <div
-      className="rounded-xl p-5"
-      style={{
-        background: '#ffffff',
-        border: '1px solid #e5e7eb',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      }}
-    >
+    <div className="dash-card p-5">
       <div className="flex items-start justify-between mb-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
         {icon && (
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -150,12 +141,9 @@ export function StatCard({
       </div>
       <div className="flex items-baseline gap-1.5">
         <span className="text-3xl font-black font-mono" style={{ color: s.text }}>{value}</span>
-        {suffix && <span className="text-xs text-gray-400 font-medium">{suffix}</span>}
+        {suffix && <span className="text-xs text-slate-400 font-medium">{suffix}</span>}
       </div>
-      <div
-        className="mt-3 h-0.5 rounded-full"
-        style={{ background: s.border }}
-      />
+      <div className="mt-3 h-0.5 rounded-full" style={{ background: s.border }} />
     </div>
   );
 }

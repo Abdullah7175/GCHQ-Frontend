@@ -203,7 +203,7 @@ export default function AdminPage() {
           cityId: form.cityId || undefined,
           hospitalId: role === 'hospital' ? form.hospitalId || undefined : undefined,
           providerId: role === 'paramedic' ? form.providerId || undefined : undefined,
-          permittedProviderIds: (role === 'hq_1122' || role === 'safe_city') ? form.permittedProviderIds || undefined : undefined,
+          permittedProviderIds: (role === 'hq_1122' || role === 'safe_city' || role === 'vvip') ? form.permittedProviderIds || undefined : undefined,
           apiKey: form.apiKey || undefined,
         };
       }
@@ -646,7 +646,7 @@ export default function AdminPage() {
                       <FormField label="Role" required>
                         <SelectInput value={(form.role as string) || 'hospital'} onChange={(v) => setForm({ ...form, role: v, hospitalId: '', providerId: '' })} options={USER_ROLE_OPTIONS} />
                       </FormField>
-                      <FormField label="City" hint="Required for Hospital / Paramedic / HQ / Safe City">
+                      <FormField label="City" hint="Required for Hospital / Paramedic / HQ / Safe City / VVIP">
                         <SelectInput value={(form.cityId as string) || ''} onChange={(v) => setForm({ ...form, cityId: v, hospitalId: '' })} options={cityOptions(refs.cities)} placeholder="Select city…" />
                       </FormField>
                       {((form.role as string) || 'hospital') === 'hospital' && (
@@ -676,7 +676,7 @@ export default function AdminPage() {
                             options={refs.providers.map((p) => ({ value: p.id as string, label: p.name as string }))} placeholder="Select provider…" required />
                         </FormField>
                       )}
-                      {((form.role as string) === 'hq_1122' || (form.role as string) === 'safe_city') && (
+                      {((form.role as string) === 'hq_1122' || (form.role as string) === 'safe_city' || (form.role as string) === 'vvip') && (
                         <FormField label="Permitted Fleet Providers" hint="Leave empty to allow viewing ALL providers">
                           <div className="space-y-2 mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto">
                             {refs.providers.map((p) => {

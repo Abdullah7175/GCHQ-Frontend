@@ -29,56 +29,99 @@ interface VvipData {
   hospitalLoad: { hospital: string; count: string }[];
   hospitalEmergencies: { hospital: string; emergencyType: string; code: string; count: string }[];
   sectorEmergencies: { sectorName: string; emergencyType: string; code: string; count: string }[];
+  city?: { name: string; code: string };
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ffc658', '#d0ed57', '#a4de6c'];
+const COLORS = ['#0f7a45', '#1d4ed8', '#c47a0a', '#c62828', '#0e7490', '#7c3aed', '#059669', '#b45309'];
 
 export default function VvipDashboard() {
   const { ready } = useAuthGuard('vvip');
-  const { cityId } = useCityContext();
+  const { cityId, currentCity, loading: cityLoading } = useCityContext();
   const [data, setData] = useState<VvipData | null>(null);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setData(await api<VvipData>(`/dashboard/vvip${cityQuery(cityId)}`));
+    if (!cityId) return;
+    try {
+      setError('');
+      setData(await api<VvipData>(`/dashboard/vvip${cityQuery(cityId)}`));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+    }
   }, [cityId]);
 
-  useEffect(() => { if (ready) load(); }, [ready, load]);
+  useEffect(() => { if (ready && cityId) load(); }, [ready, cityId, load]);
   useSocket(load);
 
-  if (!ready || !data) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  useEffect(() => {
+    if (!ready || !cityId) return;
+    const timer = window.setInterval(() => { void load(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [ready, cityId, load]);
+
+  if (!ready || cityLoading) {
+    return <div className="min-h-screen flex items-center justify-center ops-shell">Loading...</div>;
+  }
+
+  if (!cityId) {
+    return (
+      <div className="min-h-screen ops-shell flex flex-col">
+        <TopNav active="/vvip" />
+        <div className="flex-1 flex items-center justify-center pt-16 text-on-surface-variant">
+          Assign a city to this VVIP account (Admin → Users), or select a city if you have multi-city access.
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen ops-shell flex flex-col">
+        <TopNav active="/vvip" />
+        <div className="flex-1 flex items-center justify-center pt-16 text-error">{error || 'Loading...'}</div>
+      </div>
+    );
+  }
 
   const maxProviderTrips = Math.max(...data.providerTrips.map((p) => Number(p.count)), 1);
   const maxHospitalLoad = Math.max(...data.hospitalLoad.map((h) => Number(h.count)), 1);
+  const cityLabel = data.city?.name || currentCity?.name || 'City';
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface">
+    <div className="min-h-screen flex flex-col ops-shell">
       <TopNav active="/vvip" />
       <main className="pt-16 p-6 space-y-6 overflow-y-auto custom-scrollbar">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-primary">VVIP Command Console</h1>
-          <span className="text-xs font-mono bg-primary/10 text-primary px-3 py-1 rounded">LIVE OPERATIONS</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="section-kicker mb-1">Strategic Overview</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">VVIP Command Console</h1>
+            <p className="text-sm text-on-surface-variant mt-0.5">{cityLabel} operations</p>
+          </div>
+          <span className="live-badge">Live operations</span>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard label="Active Corridors" value={data.kpis.activeCorridors} accent="error" />
-          <StatCard label="Avg Time Saved" value={`${data.kpis.avgTimeSavedMinutes}m`} accent="tertiary" />
-          <StatCard label="Transit Rate" value={`${data.kpis.transitRate}%`} />
-          <StatCard label="Corridors Cleared" value={data.kpis.corridorsClearedToday} accent="tertiary" />
+          <StatCard label="Active Corridors" value={data.kpis.activeCorridors} accent="error" icon="emergency" />
+          <StatCard label="Avg Time Saved" value={`${data.kpis.avgTimeSavedMinutes}m`} accent="tertiary" icon="timer" />
+          <StatCard label="Transit Rate" value={`${data.kpis.transitRate ?? 0}%`} icon="trending_up" />
+          <StatCard label="Corridors Cleared" value={data.kpis.corridorsClearedToday} accent="tertiary" icon="task_alt" />
           <StatCard
             label="Latency Breaches"
             value={data.kpis.latencyBreaches}
             accent={data.kpis.latencyBreaches > 0 ? 'error' : 'tertiary'}
+            icon="speed"
           />
         </div>
 
-        <section className="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-outline-variant">
-            <h2 className="text-lg font-semibold">System-Wide Live Operations</h2>
+        <section className="dash-panel overflow-hidden">
+          <div className="dash-panel-header px-6 py-4">
+            <h2 className="text-lg font-semibold text-slate-900">Live Operations</h2>
+            <p className="text-[11px] text-on-surface-variant">City-scoped · fleet filters apply when configured</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant uppercase text-[10px] tracking-widest">
+                <tr className="text-on-surface-variant uppercase text-[10px] tracking-widest border-b border-outline-variant">
                   <th className="px-4 py-3">Transit ID</th>
                   <th className="px-4 py-3">Provider</th>
                   <th className="px-4 py-3">Emergency</th>
@@ -90,24 +133,31 @@ export default function VvipDashboard() {
               </thead>
               <tbody className="divide-y divide-outline-variant">
                 {data.operationsTable.map((op) => (
-                  <tr key={op.transitId} className="hover:bg-surface-container-low/50">
+                  <tr key={op.transitId} className="hover:bg-primary-light/40 transition-colors">
                     <td className="px-4 py-3 font-mono font-bold text-primary">{op.transitId}</td>
                     <td className="px-4 py-3">{op.provider}</td>
                     <td className="px-4 py-3">{op.emergencyType}</td>
                     <td className="px-4 py-3">{op.triageLevel}</td>
                     <td className="px-4 py-3">{op.sector}</td>
-                    <td className="px-4 py-3"><span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-bold uppercase">{op.status}</span></td>
+                    <td className="px-4 py-3">
+                      <span className="pill pill-green uppercase">{op.status}</span>
+                    </td>
                     <td className="px-4 py-3 font-mono">{op.elapsedMinutes}m</td>
                   </tr>
                 ))}
+                {data.operationsTable.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-on-surface-variant">No active operations</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Emergency Trips Today by Provider</h3>
+          <section className="dash-panel p-6">
+            <h3 className="text-lg font-semibold mb-4 text-slate-900">Emergency Trips Today by Provider</h3>
             <div className="space-y-4">
               {data.providerTrips.map((p) => (
                 <div key={p.code}>
@@ -123,11 +173,14 @@ export default function VvipDashboard() {
                   </div>
                 </div>
               ))}
+              {data.providerTrips.length === 0 && (
+                <p className="text-sm text-on-surface-variant">No trips today</p>
+              )}
             </div>
           </section>
 
-          <section className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Hospital Load Distribution Today</h3>
+          <section className="dash-panel p-6">
+            <h3 className="text-lg font-semibold mb-4 text-slate-900">Hospital Load Distribution Today</h3>
             <div className="space-y-4">
               {data.hospitalLoad.map((h) => (
                 <div key={h.hospital}>
@@ -143,43 +196,50 @@ export default function VvipDashboard() {
                   </div>
                 </div>
               ))}
+              {data.hospitalLoad.length === 0 && (
+                <p className="text-sm text-on-surface-variant">No completed arrivals today</p>
+              )}
             </div>
           </section>
         </div>
 
-        <section className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Incident Types by Sector</h3>
+        <section className="dash-panel p-6">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900">Incident Types by Sector</h3>
           <div className="h-[350px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.sectorEmergencies}
-                  dataKey="count"
-                  nameKey="sectorName"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={120}
-                  paddingAngle={5}
-                  label={({ payload }: any) => `${payload.sectorName}: ${payload.emergencyType}`}
-                >
-                  {data.sectorEmergencies.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value, name, props) => [value, props.payload.emergencyType]} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {data.sectorEmergencies.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.sectorEmergencies}
+                    dataKey="count"
+                    nameKey="sectorName"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={120}
+                    paddingAngle={5}
+                    label={({ payload }: any) => `${payload.sectorName}: ${payload.emergencyType}`}
+                  >
+                    {data.sectorEmergencies.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value, name, props) => [value, props.payload.emergencyType]} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-on-surface-variant text-sm">No sector data today</div>
+            )}
           </div>
         </section>
 
-        <section className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Emergency Types by Hospital (Today)</h3>
+        <section className="dash-panel p-6">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900">Emergency Types by Hospital (Today)</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-on-surface-variant uppercase text-[10px]">
+                <tr className="text-on-surface-variant uppercase text-[10px] tracking-wider border-b border-outline-variant">
                   <th className="text-left py-2">Hospital</th>
                   <th className="text-left py-2">Emergency Type</th>
                   <th className="text-right py-2">Count</th>
@@ -187,12 +247,17 @@ export default function VvipDashboard() {
               </thead>
               <tbody className="divide-y divide-outline-variant">
                 {data.hospitalEmergencies.map((row, i) => (
-                  <tr key={i}>
-                    <td className="py-2">{row.hospital}</td>
-                    <td className="py-2">{row.emergencyType}</td>
-                    <td className="py-2 text-right font-mono font-bold">{row.count}</td>
+                  <tr key={i} className="hover:bg-primary-light/30">
+                    <td className="py-2.5">{row.hospital}</td>
+                    <td className="py-2.5">{row.emergencyType}</td>
+                    <td className="py-2.5 text-right font-mono font-bold">{row.count}</td>
                   </tr>
                 ))}
+                {data.hospitalEmergencies.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-8 text-center text-on-surface-variant">No hospital emergency rows today</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

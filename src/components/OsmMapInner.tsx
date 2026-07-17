@@ -7,16 +7,6 @@ import 'leaflet/dist/leaflet.css';
 import { LAHORE_CENTER, MapMarker, MapRoute } from './map-types';
 import { createFleetIcon } from './map-icons';
 
-const centerIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
 function MapViewSync({
   center,
   zoom,
@@ -121,11 +111,6 @@ export default function OsmMapInner({
             </Marker>
           );
         })}
-        {markers.length === 0 && (
-          <Marker position={center} icon={centerIcon}>
-            <Popup>City operations center</Popup>
-          </Marker>
-        )}
       </MapContainer>
     </div>
   );
