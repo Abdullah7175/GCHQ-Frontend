@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopNav } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
-import { formatEta, useAuthGuard, useSocket } from '@/lib/hooks';
+import { useAuthGuard, useLiveEta, useSocket } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 
 interface HospitalOption {
@@ -49,8 +49,14 @@ function setStoredHospitalId(id: string) {
   localStorage.setItem(HOSPITAL_STORAGE_KEY, id);
 }
 
+/** Live countdown between server refreshes, so ETA visibly updates */
+function LiveEta({ minutes }: { minutes: number | null }) {
+  return <>{useLiveEta(minutes)}</>;
+}
+
 function StatusTableRow({ transit }: { transit: Transit }) {
-  const eta = transit.status === 'completed' ? 'Done' : formatEta(transit.etaMinutes);
+  const liveEta = useLiveEta(transit.etaMinutes);
+  const eta = transit.status === 'completed' ? 'Done' : liveEta;
   const isOngoing = transit.status !== 'completed';
 
   return (
@@ -194,6 +200,13 @@ export default function HospitalDashboard() {
 
   useEffect(() => { if (ready && hospitalId) load(); }, [ready, hospitalId, load]);
   useSocket(load);
+
+  // Poll every 15s as a fallback so ETA keeps updating even if the socket drops
+  useEffect(() => {
+    if (!ready || !hospitalId) return;
+    const timer = window.setInterval(() => { void load(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [ready, hospitalId, load]);
 
   useEffect(() => {
     if (!data?.incomingQueue) return;
@@ -458,7 +471,7 @@ export default function HospitalDashboard() {
                         </div>
                         <div>
                           <p className="text-[10px] font-bold uppercase text-slate-400">ETA</p>
-                          <p className="font-semibold text-slate-700">{formatEta(t.etaMinutes)}</p>
+                          <p className="font-semibold text-slate-700"><LiveEta minutes={t.etaMinutes} /></p>
                         </div>
                       </div>
                       <div className="mt-4 grid grid-cols-1 gap-2 text-sm">
@@ -570,7 +583,7 @@ export default function HospitalDashboard() {
                       <p><strong>Provider:</strong> {alert.transit.ambulance.provider?.name || '—'}</p>
                       <p><strong>Emergency:</strong> {alert.transit.emergencyType.name}</p>
                       <p><strong>Sector:</strong> {alert.transit.sector?.name || '—'}</p>
-                      <p><strong>ETA:</strong> {formatEta(alert.transit.etaMinutes)}</p>
+                      <p><strong>ETA:</strong> <LiveEta minutes={alert.transit.etaMinutes} /></p>
                       <p className="italic text-slate-500">"{alert.transit.paramedicNotes || 'No notes provided'}"</p>
                     </div>
 

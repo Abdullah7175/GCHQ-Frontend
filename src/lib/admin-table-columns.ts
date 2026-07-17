@@ -72,6 +72,13 @@ export const ADMIN_TABLE_COLUMNS: Record<string, AdminColumnDef[]> = {
     { key: 'name', label: 'Name', value: (i) => i.name },
     { key: 'city', label: 'City', value: (i, refs) => relLabel(i, 'city', 'cityId', refs, 'cities') },
     { key: 'sector', label: 'Sector', value: (i, refs) => relLabel(i, 'sector', 'sectorId', refs, 'sectors') },
+    {
+      key: 'emergencyTypes',
+      label: 'Categories',
+      value: (i) => Array.isArray(i.emergencyTypes)
+        ? (i.emergencyTypes as { name?: string }[]).map((t) => t.name).filter(Boolean).join(', ')
+        : '',
+    },
     { key: 'address', label: 'Address', value: (i) => i.address },
     { key: 'latitude', label: 'Latitude', value: (i) => i.latitude },
     { key: 'longitude', label: 'Longitude', value: (i) => i.longitude },

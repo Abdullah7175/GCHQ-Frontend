@@ -22,6 +22,7 @@ interface RefData {
   hospitals: Entity[];
   sectors: Entity[];
   paramedics: Entity[];
+  emergencyTypes: Entity[];
 }
 
 const RESOURCES = [
@@ -117,22 +118,25 @@ export default function AdminPage() {
 
   const loadRefs = useCallback(async () => {
     const cities = await fetchAllCities();
-    const [providersRes, usersRes, hospitalsRes, sectorsRes] = await Promise.all([
+    const [providersRes, usersRes, hospitalsRes, sectorsRes, emergencyTypesRes] = await Promise.all([
       api<unknown>('/providers'),
       api<unknown>('/users?page=1&limit=500'),
       api<unknown>('/hospitals'),
       api<unknown>('/sectors'),
+      api<unknown>('/emergency-types'),
     ]);
     const providers = asList(providersRes);
     const users = asList(usersRes);
     const hospitals = asList(hospitalsRes);
     const sectors = asList(sectorsRes);
+    const emergencyTypes = asList(emergencyTypesRes);
     setRefs({
       cities,
       providers,
       hospitals,
       sectors,
       paramedics: users.filter((u) => u.role === 'paramedic'),
+      emergencyTypes,
     } as RefData);
     return cities;
   }, [setRefs]);
@@ -155,6 +159,9 @@ export default function AdminPage() {
     setEditingId(item.id as string);
     const copy = { ...item };
     if (active === 'cities' && item.operationalConfig) copy.operationalConfig = { ...(item.operationalConfig as object) };
+    if (active === 'hospitals' && Array.isArray(item.emergencyTypes)) {
+      copy.emergencyTypeIds = (item.emergencyTypes as Entity[]).map((t) => t.id as string);
+    }
     setForm(copy);
     setFormOpen(true);
   }
@@ -185,7 +192,8 @@ export default function AdminPage() {
         return { name: form.name, cityId: form.cityId || formCityId, address: form.address || undefined,
           latitude: form.latitude ? Number(form.latitude) : undefined, longitude: form.longitude ? Number(form.longitude) : undefined,
           sectorId: form.sectorId || undefined,
-          specialties: typeof form.specialties === 'string' ? (form.specialties as string).split(',').map((s) => s.trim()).filter(Boolean) : Array.isArray(form.specialties) ? form.specialties : undefined };
+          specialties: typeof form.specialties === 'string' ? (form.specialties as string).split(',').map((s) => s.trim()).filter(Boolean) : Array.isArray(form.specialties) ? form.specialties : undefined,
+          emergencyTypeIds: Array.isArray(form.emergencyTypeIds) ? form.emergencyTypeIds : [] };
       case 'emergency-types':
         return { name: form.name, code: String(form.code || '').toUpperCase(), description: form.description || undefined, severityLevel: Number(form.severityLevel) || 3 };
       case 'triage-codes':
@@ -597,6 +605,39 @@ export default function AdminPage() {
                       <FormField label="Specialties (comma-separated)">
                         <TextInput value={typeof form.specialties === 'string' ? form.specialties : Array.isArray(form.specialties) ? (form.specialties as string[]).join(', ') : ''}
                           onChange={(v) => setForm({ ...form, specialties: v })} placeholder="Neurosurgery, Burn Care" />
+                      </FormField>
+                      <FormField
+                        label="Emergency Categories Catered"
+                        hint={refs.emergencyTypes.length === 0
+                          ? 'No emergency types found — create them in Emergency Types first'
+                          : 'Tick every emergency category this hospital can handle'}
+                      >
+                        <div className="space-y-2 mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-44 overflow-y-auto">
+                          {refs.emergencyTypes.map((et) => {
+                            const selected = (form.emergencyTypeIds as string[] || []).includes(et.id as string);
+                            return (
+                              <label key={et.id as string} className="flex items-center gap-2 text-sm text-slate-700 font-medium cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
+                                  checked={selected}
+                                  onChange={(e) => {
+                                    const prev = (form.emergencyTypeIds as string[] || []);
+                                    const next = e.target.checked
+                                      ? [...prev, et.id as string]
+                                      : prev.filter((id) => id !== et.id);
+                                    setForm({ ...form, emergencyTypeIds: next });
+                                  }}
+                                />
+                                {et.name as string}
+                                <span className="text-[10px] font-mono text-slate-400">({et.code as string})</span>
+                              </label>
+                            );
+                          })}
+                          {refs.emergencyTypes.length === 0 && (
+                            <p className="text-xs text-slate-400">No emergency types defined yet.</p>
+                          )}
+                        </div>
                       </FormField>
                     </>)}
 

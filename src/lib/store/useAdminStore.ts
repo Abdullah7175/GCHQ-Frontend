@@ -9,6 +9,7 @@ interface RefData {
   hospitals: Entity[];
   sectors: Entity[];
   paramedics: Entity[];
+  emergencyTypes: Entity[];
 }
 
 interface AdminState {
@@ -43,7 +44,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   editingId: null,
   formOpen: false,
   isFetching: false,
-  refs: { cities: [], providers: [], hospitals: [], sectors: [], paramedics: [] },
+  refs: { cities: [], providers: [], hospitals: [], sectors: [], paramedics: [], emergencyTypes: [] },
   page: 1,
   limit: 20,
   total: 0,
