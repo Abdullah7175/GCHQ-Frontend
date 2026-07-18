@@ -53,16 +53,14 @@ export default function LoginPage() {
       />
 
       <div className="relative w-full max-w-md animate-fade-in">
-        <div className="flex flex-col items-center mb-8 text-center">
-          <div className="mb-5">
-            <BrandLogo size={148} />
+        <div className="flex flex-col items-center mb-4 text-center">
+          <div>
+            <BrandLogo size={160} />
           </div>
-          <p className="section-kicker text-emerald-300/90 mb-2">Secure Command Access</p>
-          <h1 className="text-4xl font-bold tracking-tight text-white">GCHQ</h1>
-          <p className="text-sm text-emerald-100/80 mt-2 font-medium">
+          <h1 className="-mt-8 text-4xl font-bold tracking-tight text-white">GCHQ</h1>
+          <p className="text-sm text-emerald-100/80 mt-4 font-medium">
             Green Corridor Headquarters
           </p>
-          <p className="text-xs text-white/50 mt-1">Emergency Operations Command Platform</p>
         </div>
 
         <div className="rounded-3xl p-8 border border-white/15 bg-white/95 shadow-2xl backdrop-blur-xl">
