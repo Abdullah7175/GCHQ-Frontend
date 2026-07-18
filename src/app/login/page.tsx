@@ -54,8 +54,8 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-md animate-fade-in">
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="mb-5 p-3 rounded-2xl bg-white/10 border border-white/15 shadow-xl backdrop-blur-md">
-            <BrandLogo size={84} />
+          <div className="mb-5">
+            <BrandLogo size={148} />
           </div>
           <p className="section-kicker text-emerald-300/90 mb-2">Secure Command Access</p>
           <h1 className="text-4xl font-bold tracking-tight text-white">GCHQ</h1>
