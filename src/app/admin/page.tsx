@@ -244,7 +244,7 @@ export default function AdminPage() {
     const msg = active === 'transits'
       ? 'Delete this case? Related GPS history will be removed and the ambulance will be freed if it was assigned.'
       : active === 'hospitals'
-        ? 'Delete this hospital? Users assigned to it will be unassigned, and related cases (with GPS) will be deleted.'
+        ? 'Delete this hospital? Assigned users will be unassigned. Active cases will be closed/removed; completed case history is kept.'
         : 'Delete this record?';
     if (!confirm(msg)) return;
     try {
