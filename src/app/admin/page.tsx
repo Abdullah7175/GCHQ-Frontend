@@ -34,7 +34,7 @@ const RESOURCES = [
   { key: 'triage-codes',    label: 'Triage Codes',    icon: 'label',           hint: 'Priority codes (Code Red, etc.)' },
   { key: 'users',           label: 'Users',           icon: 'group',           hint: 'Staff accounts by role' },
   { key: 'ambulances',      label: 'Ambulances',      icon: 'ambulance',       hint: 'Register units & assign drivers' },
-  { key: 'transits',        label: 'Ongoing Cases',   icon: 'emergency_share', hint: 'Active corridors — delete to free drivers/units' },
+  { key: 'transits',        label: 'Cases',           icon: 'emergency_share', hint: 'All corridors — any status; delete to free drivers/units' },
 ];
 
 const READ_ONLY_RESOURCES = new Set(['transits']);
@@ -242,11 +242,18 @@ export default function AdminPage() {
 
   async function handleDelete(id: string) {
     const msg = active === 'transits'
-      ? 'Delete this ongoing case? The ambulance will be freed.'
-      : 'Delete this record?';
+      ? 'Delete this case? Related GPS history will be removed and the ambulance will be freed if it was assigned.'
+      : active === 'hospitals'
+        ? 'Delete this hospital? Users assigned to it will be unassigned, and related cases (with GPS) will be deleted.'
+        : 'Delete this record?';
     if (!confirm(msg)) return;
-    try { await api(`/${active}/${id}`, { method: 'DELETE' }); await refreshAll(); }
-    catch (err) { setLoadError(err instanceof Error ? err.message : 'Delete failed'); }
+    try {
+      setLoadError('');
+      await api(`/${active}/${id}`, { method: 'DELETE' });
+      await refreshAll();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Delete failed');
+    }
   }
 
   const sectorsForCity = refs.sectors.filter((s) => !form.cityId && !formCityId ? true : s.cityId === (form.cityId || formCityId));

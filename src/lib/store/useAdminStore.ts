@@ -69,7 +69,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       else path += '&';
       path += `page=${page}&limit=${limit}`;
       if (activeResource === 'transits') {
-        path += '&paginated=true&active=true';
+        path += '&paginated=true';
       }
 
       const res = await api<any>(path);

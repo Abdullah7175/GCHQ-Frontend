@@ -89,8 +89,15 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     const message = Array.isArray(err.message) ? err.message.join(', ') : (err.message || res.statusText);
     throw new Error(message || 'Request failed');
   }
-  if (res.status === 204) return undefined as T;
-  return res.json();
+  // DELETE / empty success bodies must not call res.json() — Nest returns 200 with no content
+  if (res.status === 204 || res.status === 205) return undefined as T;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as unknown as T;
+  }
 }
 
 export async function login(email: string, password: string) {
