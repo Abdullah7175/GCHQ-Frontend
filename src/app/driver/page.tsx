@@ -12,6 +12,7 @@ import { BrandLogo } from '@/components/BrandLogo';
 interface Hospital {
   id: string;
   name: string;
+  address?: string | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
   sectorId?: string | null;
@@ -348,7 +349,24 @@ export default function DriverApp() {
   const destination: [number, number] | null = activeTransit && parseCoord(activeTransit.hospital.latitude) != null && parseCoord(activeTransit.hospital.longitude) != null
     ? [Number(activeTransit.hospital.latitude), Number(activeTransit.hospital.longitude)]
     : null;
-  const markers: MapMarker[] = [];
+  const selectedHospitalId = activeTransit?.hospitalId || hospitalId;
+  const markers: MapMarker[] = hospitals.flatMap((hospital) => {
+    const lat = parseCoord(hospital.latitude);
+    const lng = parseCoord(hospital.longitude);
+    if (lat == null || lng == null) return [];
+    return [{
+      id: `hospital-${hospital.id}`,
+      lat,
+      lng,
+      label: hospital.name,
+      color: '#dc2626',
+      shape: 'hospital',
+      sublabel:
+        hospital.id === selectedHospitalId
+          ? 'Selected destination'
+          : hospital.address || 'Hospital',
+    }];
+  });
   if (currentPos) {
     markers.push({
       id: 'me',
@@ -358,17 +376,6 @@ export default function DriverApp() {
       color: '#d93343',
       shape: 'circle',
       sublabel: watchingLocation ? 'Your live location' : 'Last known location',
-    });
-  }
-  if (destination) {
-    markers.push({
-      id: 'hospital',
-      lat: destination[0],
-      lng: destination[1],
-      label: activeTransit?.hospital.name || 'Hospital',
-      color: '#0056b3',
-      shape: 'hospital',
-      sublabel: 'Destination hospital',
     });
   }
   const routes: MapRoute[] = routePoints.length >= 2

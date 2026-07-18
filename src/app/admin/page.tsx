@@ -378,9 +378,10 @@ export default function AdminPage() {
           {/* ── Content: table + optional slide-in form ── */}
           <div className="flex-1 flex min-h-0 overflow-hidden">
 
-            {/* Data grid */}
-            <div className="flex-1 overflow-auto">
-              <table className="data-grid">
+            {/* Data grid and pagination stack vertically */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-0">
+              <div className="flex-1 overflow-auto">
+                <table className="data-grid">
                 <thead>
                   <tr>
                     <th className="col-row-num">#</th>
@@ -444,33 +445,34 @@ export default function AdminPage() {
                     </tr>
                   )}
                 </tbody>
-              </table>
-            </div>
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-white shrink-0">
-                <span className="text-sm text-gray-500">
-                  Showing page <span className="font-semibold text-gray-900">{page}</span> of <span className="font-semibold text-gray-900">{totalPages}</span> ({total} total)
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPage(Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1 text-sm font-medium border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                    disabled={page === totalPages}
-                    className="px-3 py-1 text-sm font-medium border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                  >
-                    Next
-                  </button>
-                </div>
+                </table>
               </div>
-            )}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-white shrink-0">
+                  <span className="text-sm text-gray-500">
+                    Showing page <span className="font-semibold text-gray-900">{page}</span> of <span className="font-semibold text-gray-900">{totalPages}</span> ({total} total)
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage(Math.max(1, page - 1))}
+                      disabled={page === 1}
+                      className="px-3 py-1 text-sm font-medium border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPage(Math.min(totalPages, page + 1))}
+                      disabled={page === totalPages}
+                      className="px-3 py-1 text-sm font-medium border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Slide-in form panel */}
             {formOpen && (

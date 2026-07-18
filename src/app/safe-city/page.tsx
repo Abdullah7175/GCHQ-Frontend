@@ -33,6 +33,17 @@ interface Corridor {
 
 interface SafeCityData {
   activeCorridors: Corridor[];
+  hospitalMarkers: HospitalMapMarker[];
+}
+
+interface HospitalMapMarker {
+  id: string;
+  name: string;
+  address?: string | null;
+  latitude: number;
+  longitude: number;
+  icon: 'hospital';
+  color: string;
 }
 
 function liveSpeedKmh(c: Corridor): number {
@@ -133,8 +144,16 @@ export default function SafeCityDashboard() {
   const load = useCallback(async () => {
     if (!cityId) return;
     try {
-      const res = await api<{ activeCorridors: Corridor[] }>(`/dashboard/safe-city${cityQuery(cityId)}`);
-      setData({ activeCorridors: res.activeCorridors });
+      const [dashboard, hospitals] = await Promise.all([
+        api<{ activeCorridors: Corridor[] }>(`/dashboard/safe-city${cityQuery(cityId)}`),
+        api<{ markers: HospitalMapMarker[] }>(
+          `/hospitals/map-markers${cityQuery(cityId)}`,
+        ),
+      ]);
+      setData({
+        activeCorridors: dashboard.activeCorridors,
+        hospitalMarkers: hospitals.markers,
+      });
       setError('');
       setLastRefreshAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
@@ -198,7 +217,16 @@ export default function SafeCityDashboard() {
     return <div className="min-h-screen flex items-center justify-center text-error">{error || 'No data'}</div>;
   }
 
-  const markers: MapMarker[] = [];
+  const markers: MapMarker[] = data.hospitalMarkers.map((hospital) => ({
+    id: `hospital-${hospital.id}`,
+    lat: hospital.latitude,
+    lng: hospital.longitude,
+    label: hospital.name,
+    color: '#dc2626',
+    shape: 'hospital',
+    sublabel: hospital.address || 'Hospital',
+  }));
+
   data.activeCorridors.forEach((c, i) => {
     const [lat, lng] = corridorFrom(c, i, mapView.center);
     markers.push({
@@ -211,18 +239,6 @@ export default function SafeCityDashboard() {
       sublabel: `${c.ambulance.unitNumber} · live`,
     });
 
-    const dest = corridorTo(c);
-    if (dest) {
-      markers.push({
-        id: `hospital-${c.id}`,
-        lat: dest[0],
-        lng: dest[1],
-        label: c.hospital.name,
-        color: '#0f766e',
-        shape: 'hospital',
-        sublabel: 'Destination hospital',
-      });
-    }
   });
 
   return (
