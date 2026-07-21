@@ -61,6 +61,7 @@ export default function DriverApp() {
   const [hospitalId, setHospitalId] = useState('');
   const [emergencyTypeId, setEmergencyTypeId] = useState('');
   const [triageCodeId, setTriageCodeId] = useState('');
+  const [hospitalChoiceConsent, setHospitalChoiceConsent] = useState<'pc' | 'ac' | ''>('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -265,6 +266,10 @@ export default function DriverApp() {
       setMessage('Please fill all required fields');
       return;
     }
+    if (!hospitalChoiceConsent) {
+      setMessage('Select PC (Patient Choice) or AC (Ambulance Choice) before requesting the corridor.');
+      return;
+    }
     setLoading(true);
     setMessage('');
     try {
@@ -280,6 +285,7 @@ export default function DriverApp() {
           hospitalId,
           emergencyTypeId,
           triageCodeId,
+          hospitalChoiceConsent,
           sectorId: hospital?.sectorId || undefined,
           paramedicNotes: notes || undefined,
           originLat,
@@ -294,6 +300,7 @@ export default function DriverApp() {
       setActiveTransit(started);
       lastGpsSentRef.current = 0;
       void pushGps(originLat, originLng, 0);
+      setHospitalChoiceConsent('');
       setMessage('Corridor requested. Live GPS is streaming to HQ.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to start');
@@ -497,6 +504,35 @@ export default function DriverApp() {
                 <option value="">Select emergency type...</option>
                 {emergencyTypes.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">4. Hospital choice consent *</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setHospitalChoiceConsent('pc')}
+                  className={`py-4 rounded-xl font-bold text-sm border-2 transition-colors ${
+                    hospitalChoiceConsent === 'pc'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-outline-variant bg-white text-on-surface'
+                  }`}
+                >
+                  PC<br />
+                  <span className="font-medium text-[11px] opacity-90">Patient Choice</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHospitalChoiceConsent('ac')}
+                  className={`py-4 rounded-xl font-bold text-sm border-2 transition-colors ${
+                    hospitalChoiceConsent === 'ac'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-outline-variant bg-white text-on-surface'
+                  }`}
+                >
+                  AC<br />
+                  <span className="font-medium text-[11px] opacity-90">Ambulance Choice</span>
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">Notes (optional)</label>

@@ -173,6 +173,16 @@ export const ADMIN_TABLE_COLUMNS: Record<string, AdminColumnDef[]> = {
         return u?.name || '—';
       },
     },
+    {
+      key: 'hospitalChoiceConsent',
+      label: 'Consent',
+      value: (i) => {
+        const v = String(i.hospitalChoiceConsent || '');
+        if (v === 'pc') return 'PC — Patient Choice';
+        if (v === 'ac') return 'AC — Ambulance Choice';
+        return '—';
+      },
+    },
     { key: 'etaMinutes', label: 'ETA', value: (i) => (i.etaMinutes != null ? `${i.etaMinutes}m` : '—') },
   ],
   'audit-logs': [
