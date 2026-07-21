@@ -8,10 +8,10 @@ import { BrandLogo } from '@/components/BrandLogo';
 // Each role maps to exactly ONE portal — no cross-portal navigation
 const ROLE_PORTAL: Record<string, { label: string; icon: string; href: string }> = {
   admin:      { label: 'System Admin',    icon: 'settings',        href: '/admin' },
-  hq_1122:    { label: '1122 HQ Ops',     icon: 'hub',             href: '/hq' },
-  safe_city:  { label: 'Safe City Ctrl',  icon: 'traffic',         href: '/safe-city' },
-  hospital:   { label: 'Hospital ER',     icon: 'local_hospital',  href: '/hospital' },
-  paramedic:  { label: 'Paramedic App',   icon: 'ambulance',       href: '/driver' },
+  hq_1122:    { label: 'HQ',              icon: 'hub',             href: '/hq' },
+  safe_city:  { label: 'Safecity',        icon: 'traffic',         href: '/safe-city' },
+  hospital:   { label: 'Hospital',        icon: 'local_hospital',  href: '/hospital' },
+  paramedic:  { label: 'Driver',          icon: 'ambulance',       href: '/driver' },
   vvip:       { label: 'VVIP Command',    icon: 'shield_person',   href: '/vvip' },
 };
 
@@ -19,6 +19,11 @@ export function TopNav({ active }: { active?: string }) {
   const user = getStoredUser();
   const { cities, cityId, selectCity, canSwitchCity } = useCityContext();
   const portal = user?.role ? ROLE_PORTAL[user.role] : null;
+  const sectorLabel = (user?.role === 'safe_city' || user?.role === 'hq_1122') && user?.permittedSectorIds?.length
+    ? `${user.permittedSectorIds.length} sectors`
+    : user?.sector
+      ? `Sector ${user.sector.code}`
+      : null;
 
   return (
     <header
@@ -78,6 +83,9 @@ export function TopNav({ active }: { active?: string }) {
               </span>
             </div>
             <span className="text-xs font-medium text-slate-700">{user?.name}</span>
+            {sectorLabel && (
+              <span className="text-[10px] font-semibold text-slate-500">{sectorLabel}</span>
+            )}
             <span
               className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
               style={{ background: '#e8f7ef', color: '#0f7a45' }}
@@ -149,32 +157,91 @@ export function StatCard({
 }
 
 /* ── ProviderMarker ────────────────────────────────────────────────────────── */
-export function ProviderMarker({ shape, color, size = 12 }: { shape: string; color: string; size?: number }) {
+export function ProviderMarker({
+  shape,
+  color,
+  size = 12,
+  letter,
+}: {
+  shape: string;
+  color: string;
+  size?: number;
+  letter?: string;
+}) {
+  const box = size * 1.5;
+  const label = letter ? letter.toUpperCase().slice(0, 3) : '';
+  const labelStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 800,
+    fontSize: Math.max(7, Math.round(box * 0.38)),
+    lineHeight: 1,
+    color: '#ffffff',
+    textShadow: '0 1px 2px rgba(0,0,0,0.55)',
+    pointerEvents: 'none',
+  };
+
+  let shapeNode: React.ReactNode;
   if (shape === 'triangle') {
-    return (
+    shapeNode = (
       <div
-        style={{ borderBottomColor: color, borderLeftWidth: size, borderRightWidth: size, borderBottomWidth: size * 1.6 }}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          borderBottomColor: color,
+          borderLeftWidth: box / 2,
+          borderRightWidth: box / 2,
+          borderBottomWidth: box,
+        }}
         className="w-0 h-0 border-l-transparent border-r-transparent"
       />
     );
+  } else if (shape === 'square') {
+    shapeNode = <div style={{ backgroundColor: color, width: '100%', height: '100%' }} className="rounded-sm border-2 border-white box-border" />;
+  } else if (shape === 'diamond') {
+    shapeNode = (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div style={{ backgroundColor: color, width: box * 0.72, height: box * 0.72 }} className="rotate-45 border-2 border-white box-border" />
+      </div>
+    );
+  } else if (shape === 'star') {
+    shapeNode = (
+      <svg width={box} height={box} viewBox="0 0 24 24">
+        <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9" fill={color} stroke="#ffffff" strokeWidth="1.5" />
+      </svg>
+    );
+  } else if (shape === 'hexagon') {
+    shapeNode = (
+      <svg width={box} height={box} viewBox="0 0 24 24">
+        <polygon points="12,2 20,7 20,17 12,22 4,17 4,7" fill={color} stroke="#ffffff" strokeWidth="1.5" />
+      </svg>
+    );
+  } else if (shape === 'pentagon') {
+    shapeNode = (
+      <svg width={box} height={box} viewBox="0 0 24 24">
+        <polygon points="12,2 21,9 17,21 7,21 3,9" fill={color} stroke="#ffffff" strokeWidth="1.5" />
+      </svg>
+    );
+  } else if (shape === 'cross') {
+    shapeNode = (
+      <svg width={box} height={box} viewBox="0 0 24 24">
+        <rect x="9" y="3" width="6" height="18" fill={color} stroke="#ffffff" strokeWidth="1" />
+        <rect x="3" y="9" width="18" height="6" fill={color} stroke="#ffffff" strokeWidth="1" />
+      </svg>
+    );
+  } else {
+    shapeNode = <div style={{ backgroundColor: color, width: '100%', height: '100%' }} className="rounded-full border-2 border-white box-border" />;
   }
-  if (shape === 'square')  return <div style={{ backgroundColor: color, width: size * 1.5, height: size * 1.5 }} className="rounded-sm" />;
-  if (shape === 'diamond') return <div style={{ backgroundColor: color, width: size * 1.2, height: size * 1.2 }} className="rotate-45" />;
-  if (shape === 'star') return (
-    <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-      <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9" fill={color} />
-    </svg>
+
+  return (
+    <div className="relative shrink-0" style={{ width: box, height: box, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
+      {shapeNode}
+      {label ? <span style={labelStyle}>{label}</span> : null}
+    </div>
   );
-  if (shape === 'hexagon') return (
-    <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-      <polygon points="12,2 20,7 20,17 12,22 4,17 4,7" fill={color} />
-    </svg>
-  );
-  if (shape === 'cross') return (
-    <svg width={size * 1.5} height={size * 1.5} viewBox="0 0 24 24">
-      <rect x="9" y="3" width="6" height="18" fill={color} />
-      <rect x="3" y="9" width="18" height="6" fill={color} />
-    </svg>
-  );
-  return <div style={{ backgroundColor: color, width: size, height: size }} className="rounded-full" />;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { getStoredUser } from './api';
+import { clearClientSession, getStoredUser, restoreClientSession } from './api';
 
 let socket: Socket | null = null;
 
@@ -59,9 +59,27 @@ export function useSocket(onRefresh?: () => void) {
 
       const handleConnect = () => setConnected(true);
       const handleDisconnect = () => setConnected(false);
+      const handleAuthRevoked = async (payload?: { reason?: string }) => {
+        clearClientSession();
+        if (payload?.reason) {
+          sessionStorage.setItem('sessionNotice', payload.reason);
+        }
+        try {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+        } catch {
+          // The client session is already cleared; continue to login.
+        }
+        window.location.href = '/login';
+      };
 
       localSocket.on('connect', handleConnect);
       localSocket.on('disconnect', handleDisconnect);
+      localSocket.on('auth:revoked', handleAuthRevoked);
       localSocket.on('transit:update', requestRefresh);
       localSocket.on('gps:update', requestRefresh);
       localSocket.on('dashboard:refresh', requestRefresh);
@@ -86,17 +104,46 @@ export function useAuthGuard(requiredRole?: string) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const u = getStoredUser();
-    if (!u) {
-      window.location.href = '/login';
-      return;
+    let cancelled = false;
+
+    async function verify() {
+      let u = getStoredUser();
+      if (!u) {
+        u = await restoreClientSession();
+      }
+      if (cancelled) return;
+
+      if (!u) {
+        window.location.href = '/login';
+        return;
+      }
+      if (requiredRole && u.role !== requiredRole && u.role !== 'admin') {
+        window.location.href = '/login';
+        return;
+      }
+      setUser(u);
+      setReady(true);
+      void fetch('/api/gchq/audit-events', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+          action: 'page.view',
+          metadata: { path: window.location.pathname },
+        }),
+      }).catch(() => {
+        // Audit telemetry must not block the dashboard.
+      });
     }
-    if (requiredRole && u.role !== requiredRole && u.role !== 'admin') {
-      window.location.href = '/login';
-      return;
-    }
-    setUser(u);
-    setReady(true);
+
+    void verify();
+
+    return () => {
+      cancelled = true;
+    };
   }, [requiredRole]);
 
   return { user, ready };
@@ -126,6 +173,28 @@ export function useLiveEta(initialMinutes: number | null) {
   }, [eta]);
 
   return formatEta(eta);
+}
+
+export function usePresenceHeartbeat(enabled = true) {
+  useEffect(() => {
+    if (!enabled) return;
+    const ping = () => {
+      void fetch('/api/gchq/presence/heartbeat', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: '{}',
+      }).catch(() => {
+        // Heartbeat must not block the dashboard.
+      });
+    };
+    ping();
+    const id = window.setInterval(ping, 30_000);
+    return () => window.clearInterval(id);
+  }, [enabled]);
 }
 
 export function useRefresh(callback: () => void) {

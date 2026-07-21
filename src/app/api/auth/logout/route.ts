@@ -5,6 +5,9 @@ const COOKIE = 'gchq_token';
 
 export async function POST(req: NextRequest) {
   const token = req.cookies.get(COOKIE)?.value;
+  const body = await req.text();
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
+  const userAgent = req.headers.get('user-agent');
 
   if (token) {
     try {
@@ -14,7 +17,10 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
+          ...(clientIp ? { 'X-Forwarded-For': clientIp } : {}),
+          ...(userAgent ? { 'User-Agent': userAgent } : {}),
         },
+        body: body || '{}',
         cache: 'no-store',
       });
     } catch {

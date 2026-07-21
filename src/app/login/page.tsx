@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { login, roleRoutes } from '@/lib/api';
 import MD5 from 'crypto-js/md5';
 import { BrandLogo } from '@/components/BrandLogo';
@@ -11,6 +11,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem('sessionNotice');
+    if (notice) {
+      sessionStorage.removeItem('sessionNotice');
+      setError(notice);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

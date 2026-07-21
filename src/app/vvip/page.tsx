@@ -25,6 +25,17 @@ interface VvipData {
     corridorsClearedToday: number;
     latencyBreaches: number;
   };
+  latencyBreachLog?: {
+    id: string;
+    breachType: string;
+    delayMinutes: number;
+    thresholdMinutes: number;
+    detectedAt: string;
+    sector: string | null;
+    referenceType: string;
+    summary: string;
+    cityName?: string;
+  }[];
   providerTrips: { provider: string; code: string; shape: string; color: string; count: string }[];
   hospitalLoad: { hospital: string; count: string }[];
   hospitalEmergencies: { hospital: string; emergencyType: string; code: string; count: string }[];
@@ -109,9 +120,60 @@ export default function VvipDashboard() {
             label="Latency Breaches"
             value={data.kpis.latencyBreaches}
             accent={data.kpis.latencyBreaches > 0 ? 'error' : 'tertiary'}
-            icon="speed"
+            icon="warning"
           />
         </div>
+
+        <section className="dash-panel overflow-hidden">
+          <div className="dash-panel-header px-6 py-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Latency Breaches</h2>
+              <p className="text-[11px] text-on-surface-variant">ETA overruns & user presence — today and recent history</p>
+            </div>
+            <span className={`pill ${data.kpis.latencyBreaches > 0 ? 'pill-red' : 'pill-green'}`}>
+              {data.kpis.latencyBreaches} today
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="text-on-surface-variant uppercase text-[10px] tracking-widest border-b border-outline-variant">
+                  <th className="px-4 py-3">Detected</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">User / Case</th>
+                  <th className="px-4 py-3">Sector</th>
+                  <th className="px-4 py-3">Delay</th>
+                  <th className="px-4 py-3">Threshold</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {(data.latencyBreachLog ?? []).map((row) => (
+                  <tr key={row.id} className="hover:bg-primary-light/40 transition-colors">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      {new Date(row.detectedAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`pill ${row.breachType === 'transit_eta' ? 'pill-amber' : 'pill-red'}`}>
+                        {row.breachType === 'transit_eta' ? 'Ambulance ETA' : 'User offline'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium">{row.summary}</td>
+                    <td className="px-4 py-3">{row.sector || row.cityName || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-error">{row.delayMinutes}m</td>
+                    <td className="px-4 py-3 font-mono">{row.thresholdMinutes}m</td>
+                  </tr>
+                ))}
+                {(data.latencyBreachLog ?? []).length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-on-surface-variant">
+                      No latency breaches recorded
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         <section className="dash-panel overflow-hidden">
           <div className="dash-panel-header px-6 py-4">

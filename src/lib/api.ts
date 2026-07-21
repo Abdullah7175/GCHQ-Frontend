@@ -16,6 +16,8 @@ export interface CityOperationalConfig {
   enableTransitRateKpi: boolean;
   privacyRedactPatientData: boolean;
   commandPriority: number;
+  geofenceAutoCompleteEnabled?: boolean;
+  geofenceAutoCompleteDelaySeconds?: number;
 }
 
 export interface City {
@@ -40,6 +42,7 @@ export interface AuthUser {
   hospitalId?: string;
   providerId?: string;
   sectorId?: string;
+  permittedSectorIds?: string[];
   isCityOverseer?: boolean;
   hospital?: { id: string; name: string };
   sector?: { id: string; name: string; code: string };
@@ -126,12 +129,20 @@ export async function login(email: string, password: string) {
   return data as { user: AuthUser; expiresIn?: string; tokenType?: string };
 }
 
-export async function logout() {
+export async function logout(location?: {
+  latitude: number;
+  longitude: number;
+  deviceId?: string;
+}) {
   try {
     await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(location ?? {}),
     });
   } catch {
     // ignore network errors on logout
@@ -139,7 +150,7 @@ export async function logout() {
   clearClientSession();
 }
 
-function clearClientSession() {
+export function clearClientSession() {
   sessionStorage.removeItem('user');
   sessionStorage.removeItem('selectedCityId');
   localStorage.removeItem('token');
@@ -153,6 +164,26 @@ export function getStoredUser(): AuthUser | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+/** Hydrate sessionStorage from the HttpOnly cookie (needed when opening a new browser tab). */
+export async function restoreClientSession(): Promise<AuthUser | null> {
+  const cached = getStoredUser();
+  if (cached) return cached;
+
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { user?: AuthUser };
+    if (!data.user) return null;
+    sessionStorage.setItem('user', JSON.stringify(data.user));
+    if (data.user.cityId && !getSelectedCityId()) {
+      setSelectedCityId(data.user.cityId);
+    }
+    return data.user;
   } catch {
     return null;
   }

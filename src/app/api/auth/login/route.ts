@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         ...(clientIp ? { 'X-Forwarded-For': clientIp } : {}),
+        ...(req.headers.get('user-agent')
+          ? { 'User-Agent': req.headers.get('user-agent')! }
+          : {}),
       },
       body: JSON.stringify({ email, password }),
       cache: 'no-store',

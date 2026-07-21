@@ -18,8 +18,9 @@ export function BrandLogo({
       <Image
         src="/gchq-logo.png"
         alt="GCHQ"
-        width={size}
-        height={size}
+        width={1024}
+        height={1536}
+        style={{ width: size, height: 'auto' }}
         className="object-contain shrink-0 rounded-md"
         priority
       />

@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TopNav } from '@/components/ui';
-import { api, cityQuery } from '@/lib/api';
-import { useAuthGuard, useSocket, useLiveEta } from '@/lib/hooks';
+import { api, cityQuery, getStoredUser } from '@/lib/api';
+import { useAuthGuard, useSocket, useLiveEta, usePresenceHeartbeat } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
 import { MapMarker, MapRoute, parseCoord, fallbackPosition, resolveCityMapView } from '@/components/map-types';
 import { getLiveRoute } from '@/lib/demo-route';
+import { corridorRouteColor } from '@/lib/route-colors';
 
 interface Corridor {
   id: string;
@@ -23,7 +24,7 @@ interface Corridor {
     currentLat?: number | string | null;
     currentLng?: number | string | null;
     currentSpeed?: number | string | null;
-    provider: { name: string; color: string; shape?: string };
+    provider: { name: string; color: string; shape?: string; markerLetter?: string };
   };
   hospital: { name: string; latitude?: number | string | null; longitude?: number | string | null };
   sector: { name: string };
@@ -119,6 +120,8 @@ function CorridorCard({ corridor }: { corridor: Corridor }) {
 
 export default function SafeCityDashboard() {
   const { ready } = useAuthGuard('safe_city');
+  usePresenceHeartbeat(ready);
+  const sessionUser = getStoredUser();
   const { cityId, currentCity, loading: cityLoading } = useCityContext();
   const [data, setData] = useState<SafeCityData | null>(null);
   const [error, setError] = useState('');
@@ -140,6 +143,7 @@ export default function SafeCityDashboard() {
       ),
     [data?.activeCorridors],
   );
+  const scopedSectorCount = sessionUser?.permittedSectorIds?.length ?? (sessionUser?.sector ? 1 : 0);
 
   const load = useCallback(async () => {
     if (!cityId) return;
@@ -188,14 +192,14 @@ export default function SafeCityDashboard() {
             return {
               id: `route-${c.id}`,
               positions: [from] as [number, number][],
-              color: c.ambulance.provider?.color || '#0056b3',
+              color: corridorRouteColor(i),
             };
           }
           const path = await getLiveRoute(from, to);
           return {
             id: `route-${c.id}`,
             positions: path.length >= 2 ? path : [from, to],
-            color: c.ambulance.provider?.color || '#0056b3',
+            color: corridorRouteColor(i),
           };
         }),
       );
@@ -236,7 +240,8 @@ export default function SafeCityDashboard() {
       label: c.transitId,
       color: c.ambulance.provider?.color || '#d93343',
       shape: c.ambulance.provider?.shape || 'circle',
-      sublabel: `${c.ambulance.unitNumber} · live`,
+      letter: c.ambulance.provider?.markerLetter,
+      sublabel: `${c.ambulance.unitNumber} · ${c.ambulance.provider?.name || 'Fleet'}`,
     });
 
   });
@@ -250,8 +255,15 @@ export default function SafeCityDashboard() {
             <span className="material-symbols-outlined text-[16px]">route</span>
             Ongoing Corridors Grid
             {currentCity && (
-              <span className="ml-auto normal-case tracking-normal font-semibold text-on-surface-variant">
-                {currentCity.name}
+              <span className="ml-auto normal-case tracking-normal font-semibold text-on-surface-variant text-right">
+                <span className="block">{currentCity.name}</span>
+                {scopedSectorCount > 0 && (
+                  <span className="text-[10px] font-mono text-primary">
+                    {scopedSectorCount === 1 && sessionUser?.sector
+                      ? `Sector ${sessionUser.sector.code} — ${sessionUser.sector.name}`
+                      : `${scopedSectorCount} assigned sectors`}
+                  </span>
+                )}
               </span>
             )}
           </h2>
@@ -281,12 +293,18 @@ export default function SafeCityDashboard() {
             )}
           </div>
 
-          <div className="absolute bottom-6 left-6 glass-panel p-4 rounded-xl space-y-2 z-[1000]">
+          <div className="absolute bottom-6 left-6 glass-panel p-4 rounded-xl space-y-2 z-[1000] max-w-xs">
             <p className="text-xs font-bold uppercase text-on-surface-variant mb-2 tracking-wider">Map Legend</p>
-            <div className="flex items-center gap-2 text-sm"><div className="w-3 h-3 bg-[#d93343] rounded-full" /> Live ambulance</div>
             <div className="flex items-center gap-2 text-sm">
-              <span className="inline-flex w-4 h-4 items-center justify-center border-2 border-teal-700 rounded text-teal-700 text-[10px] font-black">+</span>
+              <span className="text-[10px] text-on-surface-variant">Ambulance markers use fleet shape, color &amp; letter</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="inline-flex w-4 h-4 items-center justify-center border-2 border-red-600 rounded text-red-600 text-[10px] font-black">+</span>
               Hospital destination
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="inline-block w-8 h-1 rounded" style={{ background: corridorRouteColor(0) }} />
+              Route lines use distinct colors per corridor
             </div>
           </div>
         </section>

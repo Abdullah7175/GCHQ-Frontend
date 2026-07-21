@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { TopNav } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
-import { useAuthGuard, useSocket, useLiveEta } from '@/lib/hooks';
+import { useAuthGuard, useSocket, useLiveEta, usePresenceHeartbeat } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 
 interface Transit {
@@ -40,7 +40,7 @@ interface HqData {
   activeTransits: Transit[];
   unclaimedCorridors: Transit[];
   isCityOverseer: boolean;
-  sectorId: string | null;
+  sectorIds?: string[];
   stats: { activeEmergencies: number; greenCorridors: number; todayCompleted: number; unclaimed: number };
 }
 
@@ -92,6 +92,7 @@ const selectClass = 'border border-outline-variant rounded-xl px-2.5 py-1.5 text
 
 export default function HqDashboard() {
   const { ready } = useAuthGuard('hq_1122');
+  usePresenceHeartbeat(ready);
   const { cityId, loading: cityLoading } = useCityContext();
   const [data, setData] = useState<HqData | null>(null);
   const [error, setError] = useState('');
@@ -190,7 +191,12 @@ export default function HqDashboard() {
   if (!data) return null;
 
   const isOverseer = !!data.isCityOverseer;
-  const roleLabel = isOverseer ? 'City Overseer' : 'Sector CSR';
+  const assignedSectorCount = data.sectorIds?.length ?? 0;
+  const roleLabel = isOverseer
+    ? 'City Overseer'
+    : assignedSectorCount > 1
+      ? `${assignedSectorCount} sectors`
+      : 'Sector CSR';
   const listForPanel = filteredTransits.filter((t) => t.status === 'pending' || t.status === 'en_route' || t.status === 'arrived');
 
   const hasFilters = !!(filterHospital || filterSector || filterProvider);

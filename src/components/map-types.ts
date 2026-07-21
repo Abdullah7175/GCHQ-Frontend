@@ -6,6 +6,8 @@ export interface MapMarker {
   color?: string;
   /** Fleet shapes, or 'hospital' for medical plus pin */
   shape?: string;
+  /** Letter shown inside fleet marker (from provider markerLetter) */
+  letter?: string;
   sublabel?: string;
 }
 

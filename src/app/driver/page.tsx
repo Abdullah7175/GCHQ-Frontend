@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, cityQuery, getStoredUser, logout } from '@/lib/api';
-import { useAuthGuard } from '@/lib/hooks';
+import { useAuthGuard, useSocket } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
 import { MapMarker, MapRoute, parseCoord, resolveCityMapView } from '@/components/map-types';
 import { getLiveRoute } from '@/lib/demo-route';
+import { corridorRouteColor } from '@/lib/route-colors';
 import { BrandLogo } from '@/components/BrandLogo';
 
 interface Hospital {
@@ -26,6 +27,7 @@ interface Ambulance {
   driverId?: string | null;
   currentLat?: number | string | null;
   currentLng?: number | string | null;
+  provider?: { name?: string; color?: string; shape?: string; markerLetter?: string };
 }
 interface Transit {
   id: string;
@@ -93,16 +95,12 @@ export default function DriverApp() {
       setEmergencyTypes(et);
       setTriageCodes(tc);
 
-      let myAmbulance = mine?.ambulance ?? null;
-      if (!myAmbulance) {
-        const ambRes = await api<Ambulance[] | { data: Ambulance[] }>(`/ambulances${cq}`);
-        const ambulances = Array.isArray(ambRes) ? ambRes : ambRes.data ?? [];
-        myAmbulance =
-          ambulances.find((a) => a.driverId === user?.id) ??
-          ambulances.find((a) => a.status === 'available') ??
-          null;
-      }
+      // Only the currently active shift unit may be used — never fall back to any available ambulance.
+      const myAmbulance = mine?.ambulance ?? null;
       setAmbulance(myAmbulance);
+      if (!myAmbulance) {
+        setLoadError('No active ambulance shift for this driver. Sign in after your unit is assigned.');
+      }
 
       const transits = Array.isArray(transitsRaw) ? transitsRaw : transitsRaw.data ?? [];
       const mineTransit =
@@ -127,6 +125,7 @@ export default function DriverApp() {
   useEffect(() => {
     if (ready && resolvedCityId && !cityLoading) load();
   }, [ready, resolvedCityId, cityLoading, load]);
+  useSocket(load);
 
   const pushGps = useCallback(async (lat: number, lng: number, speedKmh: number) => {
     const unit = ambulanceRef.current;
@@ -368,20 +367,22 @@ export default function DriverApp() {
     }];
   });
   if (currentPos) {
+    const fleet = ambulance?.provider;
     markers.push({
       id: 'me',
       lat: currentPos[0],
       lng: currentPos[1],
       label: ambulance?.unitNumber || 'Unit',
-      color: '#d93343',
-      shape: 'circle',
+      color: fleet?.color || '#d93343',
+      shape: fleet?.shape || 'circle',
+      letter: fleet?.markerLetter,
       sublabel: watchingLocation ? 'Your live location' : 'Last known location',
     });
   }
   const routes: MapRoute[] = routePoints.length >= 2
-    ? [{ id: 'live-route', positions: routePoints, color: '#0056b3' }]
+    ? [{ id: 'live-route', positions: routePoints, color: corridorRouteColor(0) }]
     : currentPos && destination
-      ? [{ id: 'live-route', positions: [currentPos, destination], color: '#0056b3' }]
+      ? [{ id: 'live-route', positions: [currentPos, destination], color: corridorRouteColor(0) }]
       : [];
   const mapCenter: [number, number] = currentPos || resolveCityMapView(currentCity).center;
 
@@ -401,7 +402,17 @@ export default function DriverApp() {
               </p>
             </div>
           </div>
-          <button onClick={async () => { await logout(); window.location.href = '/login'; }} className="text-sm opacity-80 shrink-0">
+          <button
+            onClick={async () => {
+              await logout(
+                deviceLocation
+                  ? { latitude: deviceLocation[0], longitude: deviceLocation[1] }
+                  : undefined,
+              );
+              window.location.href = '/login';
+            }}
+            className="text-sm opacity-80 shrink-0"
+          >
             Logout
           </button>
         </div>

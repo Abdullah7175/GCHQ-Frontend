@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopNav } from '@/components/ui';
 import { api, cityQuery } from '@/lib/api';
-import { useAuthGuard, useLiveEta, useSocket } from '@/lib/hooks';
+import { useAuthGuard, useLiveEta, useSocket, usePresenceHeartbeat } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 
 interface HospitalOption {
@@ -87,6 +87,7 @@ function StatusTableRow({ transit }: { transit: Transit }) {
 
 export default function HospitalDashboard() {
   const { user, ready } = useAuthGuard('hospital');
+  usePresenceHeartbeat(ready);
   const { cityId, currentCity, loading: cityLoading } = useCityContext();
   const isAdmin = user?.role === 'admin';
   const [hospitals, setHospitals] = useState<HospitalOption[]>([]);

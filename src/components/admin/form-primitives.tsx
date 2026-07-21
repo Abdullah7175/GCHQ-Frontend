@@ -49,10 +49,10 @@ export const AMBULANCE_STATUS_OPTIONS = [
 
 export const USER_ROLE_OPTIONS = [
   { value: 'admin',      label: 'System Admin' },
-  { value: 'hq_1122',   label: '1122 HQ Supervisor' },
-  { value: 'safe_city',  label: 'Safe City Controller' },
-  { value: 'hospital',   label: 'Hospital ER Staff' },
-  { value: 'paramedic',  label: 'Paramedic / Driver' },
+  { value: 'hq_1122',   label: 'HQ' },
+  { value: 'safe_city',  label: 'Safecity' },
+  { value: 'hospital',   label: 'Hospital' },
+  { value: 'paramedic',  label: 'Driver' },
   { value: 'vvip',       label: 'VVIP Command' },
 ];
 
@@ -162,9 +162,9 @@ export function ColorPicker({
 }
 
 export function ShapePicker({
-  value, color, onChange,
+  value, color, letter, onChange,
 }: {
-  value: string; color: string; onChange: (shape: string) => void;
+  value: string; color: string; letter?: string; onChange: (shape: string) => void;
 }) {
   return (
     <div className="grid grid-cols-4 gap-2">
@@ -177,7 +177,7 @@ export function ShapePicker({
             value === s.value ? 'neo-inset' : 'neo-btn'
           }`}
         >
-          <ProviderMarker shape={s.value} color={color || '#d93343'} size={14} />
+          <ProviderMarker shape={s.value} color={color || '#d93343'} size={14} letter={letter} />
           <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">{s.label}</span>
         </button>
       ))}

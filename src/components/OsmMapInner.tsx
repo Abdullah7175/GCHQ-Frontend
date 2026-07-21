@@ -97,7 +97,7 @@ export default function OsmMapInner({
             <Marker
               key={m.id}
               position={[m.lat, m.lng]}
-              icon={createFleetIcon(m.shape || 'circle', m.color || '#d93343', size)}
+              icon={createFleetIcon(m.shape || 'circle', m.color || '#d93343', size, m.letter)}
               eventHandlers={
                 onMarkerClick
                   ? { click: () => onMarkerClick(m.id) }

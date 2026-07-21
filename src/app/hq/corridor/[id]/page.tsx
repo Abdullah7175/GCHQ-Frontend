@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { TopNav } from '@/components/ui';
+import { TopNav, ProviderMarker } from '@/components/ui';
 import { api } from '@/lib/api';
-import { formatEta, useAuthGuard, useSocket } from '@/lib/hooks';
+import { formatEta, useAuthGuard, useSocket, usePresenceHeartbeat } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
 import { OsmMap } from '@/components/OsmMap';
 import { MapMarker, MapRoute, parseCoord, resolveCityMapView } from '@/components/map-types';
@@ -27,7 +27,7 @@ interface TransitDetail {
     currentLat?: number | string | null;
     currentLng?: number | string | null;
     currentSpeed?: number | string | null;
-    provider?: { name?: string; color?: string; shape?: string };
+    provider?: { name?: string; color?: string; shape?: string; markerLetter?: string };
   };
   hospital: {
     name: string;
@@ -73,6 +73,7 @@ const STATUS_PILL: Record<string, string> = {
 
 export default function CorridorDetailPage() {
   const { ready } = useAuthGuard('hq_1122');
+  usePresenceHeartbeat(ready);
   const { currentCity, loading: cityLoading } = useCityContext();
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -148,6 +149,8 @@ export default function CorridorDetailPage() {
   if (!transit) return null;
 
   const providerColor = transit.ambulance?.provider?.color || '#d93343';
+  const providerShape = transit.ambulance?.provider?.shape || 'circle';
+  const providerLetter = transit.ambulance?.provider?.markerLetter;
   const markers: MapMarker[] = [];
   if (from) {
     markers.push({
@@ -156,7 +159,8 @@ export default function CorridorDetailPage() {
       lng: from[1],
       label: transit.ambulance?.unitNumber || 'Unit',
       color: providerColor,
-      shape: transit.ambulance?.provider?.shape || 'circle',
+      shape: providerShape,
+      letter: providerLetter,
       sublabel: `${transit.transitId} · live position`,
     });
   }
@@ -304,7 +308,7 @@ export default function CorridorDetailPage() {
           <div className="absolute bottom-6 left-6 glass-panel p-4 rounded-xl space-y-2 z-[1000]">
             <p className="text-xs font-bold uppercase text-on-surface-variant mb-2 tracking-wider">Map Legend</p>
             <div className="flex items-center gap-2 text-sm">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: providerColor }} />
+              <ProviderMarker shape={providerShape} color={providerColor} size={12} letter={providerLetter} />
               {transit.ambulance?.unitNumber || 'Ambulance'} (live)
             </div>
             <div className="flex items-center gap-2 text-sm">
