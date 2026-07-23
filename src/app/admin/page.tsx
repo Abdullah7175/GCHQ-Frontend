@@ -24,6 +24,7 @@ interface RefData {
   paramedics: Entity[];
   emergencyTypes: Entity[];
   latencyRules: Entity[];
+  ambulances: Entity[];
 }
 
 const RESOURCES = [
@@ -109,7 +110,9 @@ export default function AdminPage() {
   const { cityId: navCityId } = useCityContext();
   const {
     activeResource: active, items, form, editingId, formOpen, isFetching, refs, page, limit, total, totalPages,
-    setActiveResource, setForm, setEditingId, setFormOpen, setPage, setLimit, setRefs, fetchItems, resetForm
+    transitFilters, listFilters,
+    setActiveResource, setForm, setEditingId, setFormOpen, setPage, setLimit, setRefs, fetchItems, resetForm,
+    setTransitFilters, resetTransitFilters, setListFilters, resetListFilters,
   } = useAdminStore();
 
   const [saveError, setSaveError] = useState('');
@@ -118,6 +121,7 @@ export default function AdminPage() {
   const [msgTestMessage, setMsgTestMessage] = useState('[GCHQ] Test — your messaging API is configured correctly.');
   const [msgTestLoading, setMsgTestLoading] = useState(false);
   const [msgTestResult, setMsgTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const formCityId = (form.cityId as string) || navCityId || refs.cities[0]?.id || '';
 
@@ -131,13 +135,14 @@ export default function AdminPage() {
 
   const loadRefs = useCallback(async () => {
     const cities = await fetchAllCities();
-    const [providersRes, usersRes, hospitalsRes, sectorsRes, emergencyTypesRes, latencyRulesRes] = await Promise.all([
+    const [providersRes, usersRes, hospitalsRes, sectorsRes, emergencyTypesRes, latencyRulesRes, ambulancesRes] = await Promise.all([
       api<unknown>('/providers'),
       api<unknown>('/users?page=1&limit=500'),
       api<unknown>('/hospitals'),
       api<unknown>('/sectors'),
       api<unknown>('/emergency-types'),
       api<unknown>('/latency-rules?page=1&limit=500'),
+      api<unknown>('/ambulances?page=1&limit=500'),
     ]);
     const providers = asList(providersRes);
     const users = asList(usersRes);
@@ -145,6 +150,7 @@ export default function AdminPage() {
     const sectors = asList(sectorsRes);
     const emergencyTypes = asList(emergencyTypesRes);
     const latencyRules = asList(latencyRulesRes);
+    const ambulances = asList(ambulancesRes);
     setRefs({
       cities,
       providers,
@@ -153,6 +159,7 @@ export default function AdminPage() {
       paramedics: users.filter((u) => u.role === 'paramedic'),
       emergencyTypes,
       latencyRules,
+      ambulances,
     } as RefData);
     return cities;
   }, [setRefs]);
@@ -173,6 +180,7 @@ export default function AdminPage() {
     setActiveResource(key);
     setSaveError('');
     setMsgTestResult(null);
+    setMobileNavOpen(false);
   }
 
   async function handleTestMessaging() {
@@ -465,11 +473,23 @@ export default function AdminPage() {
       <TopNav active="/admin" />
 
       {/* ── Shell below nav ── */}
-      <div className="flex flex-1 min-h-0 pt-14">
+      <div className="flex flex-1 min-h-0 pt-14 relative">
+
+        {/* Mobile nav backdrop */}
+        {mobileNavOpen && (
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="fixed inset-0 z-30 bg-black/40 md:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
 
         {/* ── Left sidebar ── */}
         <aside
-          className="w-52 shrink-0 flex flex-col overflow-y-auto"
+          className={`fixed md:static inset-y-0 left-0 z-40 w-64 md:w-52 shrink-0 flex flex-col overflow-y-auto pt-14 md:pt-0 transform transition-transform duration-200 ${
+            mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
           style={{ background: '#ffffff', borderRight: '1px solid #e5e7eb' }}
         >
           <nav className="flex-1 p-2 pt-4 space-y-0.5">
@@ -478,7 +498,7 @@ export default function AdminPage() {
                 key={r.key}
                 type="button"
                 onClick={() => switchResource(r.key)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-100 group ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 md:py-2 rounded-lg text-left transition-all duration-100 group min-h-11 md:min-h-0 ${
                   active === r.key
                     ? 'bg-green-50 text-green-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -506,37 +526,40 @@ export default function AdminPage() {
 
           {/* ── Toolbar ── */}
           <div
-            className="flex items-center justify-between px-5 py-3 shrink-0"
+            className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-5 py-3 shrink-0"
             style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb' }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <button
+                type="button"
+                className="md:hidden min-h-11 min-w-11 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open menu"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>menu</span>
+              </button>
               <span
-                className="material-symbols-outlined"
+                className="material-symbols-outlined hidden sm:inline"
                 style={{ fontSize: 18, color: '#15803d', fontVariationSettings: "'FILL' 1" }}
               >
                 {activeResource?.icon}
               </span>
-              <div>
-                <h1 className="text-sm font-bold text-gray-900 leading-tight">{activeResource?.label}</h1>
-                <p className="text-[10px] text-gray-400">{activeResource?.hint}</p>
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-gray-900 leading-tight truncate">{activeResource?.label}</h1>
+                <p className="text-[10px] text-gray-400 hidden sm:block truncate">{activeResource?.hint}</p>
               </div>
-              <div
-                className="h-5 w-px mx-1"
-                style={{ background: '#e5e7eb' }}
-              />
-              <span className="text-xs font-mono font-semibold text-gray-500">{items.length} rows</span>
-              <span className="pill pill-blue text-[10px]">All cities</span>
+              <span className="text-xs font-mono font-semibold text-gray-500 shrink-0">{items.length}</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {loadError && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-red-600 font-medium" style={{ background: '#fee2e2' }}>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-red-600 font-medium max-w-[140px] sm:max-w-none truncate" style={{ background: '#fee2e2' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 13 }}>error</span>
-                  {loadError}
+                  <span className="hidden sm:inline">{loadError}</span>
                   <button type="button" onClick={refreshAll} className="underline ml-1">Retry</button>
                 </div>
               )}
-              <button type="button" onClick={refreshAll} className="btn-ghost text-xs px-3 py-2">
+              <button type="button" onClick={refreshAll} className="btn-ghost text-xs px-3 py-2 min-h-10">
                 <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
               </button>
               {!READ_ONLY_RESOURCES.has(active) && (
@@ -553,6 +576,203 @@ export default function AdminPage() {
 
             {/* Data grid and pagination stack vertically */}
             <div className="flex-1 flex flex-col min-w-0 min-h-0">
+              {active === 'transits' && (
+                <div
+                  className="shrink-0 flex flex-wrap items-end gap-3 px-4 py-3 border-b border-gray-200 bg-white"
+                >
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Ambulance
+                    <select
+                      className="min-w-[160px] rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={transitFilters.ambulanceId}
+                      onChange={(e) => setTransitFilters({ ambulanceId: e.target.value })}
+                    >
+                      <option value="">All units</option>
+                      {(refs.ambulances || []).map((a) => (
+                        <option key={String(a.id)} value={String(a.id)}>
+                          {String(a.unitNumber || a.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    From
+                    <input
+                      type="date"
+                      className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={transitFilters.from}
+                      onChange={(e) => setTransitFilters({ from: e.target.value })}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    To
+                    <input
+                      type="date"
+                      className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={transitFilters.to}
+                      onChange={(e) => setTransitFilters({ to: e.target.value })}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Status
+                    <select
+                      className="min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={transitFilters.status}
+                      onChange={(e) => setTransitFilters({ status: e.target.value })}
+                    >
+                      <option value="">All statuses</option>
+                      <option value="completed">Completed</option>
+                      <option value="en_route">En route</option>
+                      <option value="arrived">Arrived</option>
+                      <option value="pending">Pending</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fetchItems(null, false)}
+                    className="btn-primary text-xs px-3 py-2"
+                  >
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetTransitFilters();
+                      void fetchItems(null, false);
+                    }}
+                    className="btn-ghost text-xs px-3 py-2"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              {(active === 'audit-logs' || active === 'latency-breaches') && (
+                <div className="shrink-0 flex flex-wrap items-end gap-3 px-4 py-3 border-b border-gray-200 bg-white">
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Name
+                    <input
+                      type="text"
+                      placeholder="User name…"
+                      className="min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={listFilters.name}
+                      onChange={(e) => setListFilters({ name: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void fetchItems(null, false); }}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Email
+                    <input
+                      type="text"
+                      placeholder="user@…"
+                      className="min-w-[160px] rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={listFilters.email}
+                      onChange={(e) => setListFilters({ email: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void fetchItems(null, false); }}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Role
+                    <select
+                      className="min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={listFilters.role}
+                      onChange={(e) => setListFilters({ role: e.target.value })}
+                    >
+                      <option value="">All roles</option>
+                      {USER_ROLE_OPTIONS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    From
+                    <input
+                      type="date"
+                      className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={listFilters.from}
+                      onChange={(e) => setListFilters({ from: e.target.value })}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    To
+                    <input
+                      type="date"
+                      className="rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={listFilters.to}
+                      onChange={(e) => setListFilters({ to: e.target.value })}
+                    />
+                  </label>
+                  <button type="button" onClick={() => void fetchItems(null, false)} className="btn-primary text-xs px-3 py-2">
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetListFilters();
+                      void fetchItems(null, false);
+                    }}
+                    className="btn-ghost text-xs px-3 py-2"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              {['providers', 'hospitals', 'sectors', 'emergency-types', 'ambulances', 'latency-rules', 'latency-recipients', 'users'].includes(active) && (
+                <div className="shrink-0 flex flex-wrap items-end gap-3 px-4 py-3 border-b border-gray-200 bg-white">
+                  <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 flex-1 min-w-[200px]">
+                    Search
+                    <input
+                      type="search"
+                      placeholder={
+                        active === 'ambulances'
+                          ? 'Unit number, provider…'
+                          : active === 'users'
+                            ? 'Name or email…'
+                            : active === 'latency-recipients'
+                              ? 'Contact, phone, rule…'
+                              : 'Search by name…'
+                      }
+                      className="w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                      value={listFilters.q}
+                      onChange={(e) => setListFilters({ q: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void fetchItems(null, false);
+                      }}
+                    />
+                  </label>
+                  {active === 'users' && (
+                    <label className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                      Role
+                      <select
+                        className="min-w-[140px] rounded-lg border border-gray-200 px-2.5 py-2 text-xs text-gray-800 bg-white"
+                        value={listFilters.role}
+                        onChange={(e) => setListFilters({ role: e.target.value })}
+                      >
+                        <option value="">All roles</option>
+                        {USER_ROLE_OPTIONS.map((r) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <button type="button" onClick={() => void fetchItems(null, false)} className="btn-primary text-xs px-3 py-2">
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetListFilters();
+                      void fetchItems(null, false);
+                    }}
+                    className="btn-ghost text-xs px-3 py-2"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
               <div className="flex-1 overflow-auto">
                 <table className="data-grid">
                 <thead>
@@ -561,7 +781,7 @@ export default function AdminPage() {
                     {columns.map((col) => (
                       <th key={col.key}>{col.label}</th>
                     ))}
-                    <th style={{ width: 110 }}>Actions</th>
+                    <th style={{ width: 140 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -575,6 +795,15 @@ export default function AdminPage() {
                       ))}
                       <td>
                         <div className="flex items-center gap-1.5 flex-wrap">
+                          {active === 'transits' && (
+                            <a
+                              href={`/admin/cases/${item.id as string}`}
+                              className="btn-ghost p-1.5 text-green-700 border border-green-200 inline-flex"
+                              title="Case details"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>visibility</span>
+                            </a>
+                          )}
                           {active === 'hospitals' && (
                             <a
                               href={`/admin/hospital-geofence/${item.id as string}`}
@@ -662,10 +891,17 @@ export default function AdminPage() {
 
             {/* Slide-in form panel */}
             {formOpen && (
-              <div
-                className="w-80 shrink-0 flex flex-col overflow-y-auto animate-fade-in"
-                style={{ background: '#ffffff', borderLeft: '1px solid #e5e7eb' }}
-              >
+              <>
+                <button
+                  type="button"
+                  aria-label="Close form"
+                  className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+                  onClick={() => { setFormOpen(false); resetForm(); setSaveError(''); }}
+                />
+                <div
+                  className="fixed lg:static inset-y-0 right-0 z-50 w-full max-w-md lg:w-80 shrink-0 flex flex-col overflow-y-auto animate-fade-in pt-14 lg:pt-0"
+                  style={{ background: '#ffffff', borderLeft: '1px solid #e5e7eb' }}
+                >
                 {/* Form header */}
                 <div
                   className="flex items-center justify-between px-5 py-4 shrink-0"
@@ -1350,6 +1586,7 @@ export default function AdminPage() {
                   </div>
                 </form>
               </div>
+              </>
             )}
           </div>
         </main>

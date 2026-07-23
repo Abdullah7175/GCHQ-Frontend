@@ -35,19 +35,19 @@ export function TopNav({ active }: { active?: string }) {
         backdropFilter: 'blur(12px)',
       }}
     >
-      <div className="w-full max-w-screen-2xl mx-auto px-5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 shrink-0">
-          <BrandLogo size={34} />
-          <div className="flex items-center gap-2">
+      <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+          <BrandLogo size={30} />
+          <div className="flex items-center gap-2 min-w-0">
             <div>
               <span className="text-sm font-bold text-slate-900 tracking-tight block leading-none">GCHQ</span>
               <span className="text-[9px] text-slate-400 font-medium hidden sm:block">Green Corridor Headquarters</span>
             </div>
             {portal && (
               <>
-                <span className="text-slate-300 font-light">/</span>
+                <span className="text-slate-300 font-light hidden xs:inline sm:inline">/</span>
                 <span
-                  className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                  className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-lg truncate max-w-[110px] sm:max-w-none"
                   style={{ background: 'linear-gradient(180deg,#e8f7ef,#d9f0e4)', color: '#0f7a45', border: '1px solid rgba(15,122,69,0.18)' }}
                 >
                   <span
@@ -56,14 +56,14 @@ export function TopNav({ active }: { active?: string }) {
                   >
                     {portal.icon}
                   </span>
-                  {portal.label}
+                  <span className="truncate">{portal.label}</span>
                 </span>
               </>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {canSwitchCity && cities.length > 0 && user?.role !== 'admin' && (
             <CitySelector cities={cities} cityId={cityId} onChange={selectCity} />
           )}
@@ -95,11 +95,11 @@ export function TopNav({ active }: { active?: string }) {
           </div>
           <button
             onClick={async () => { await logout(); window.location.href = '/login'; }}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-red-600 min-h-10 px-2.5 sm:px-3 py-1.5 rounded-xl transition-colors"
             style={{ border: '1px solid rgba(15,122,69,0.14)', background: '#fff' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>logout</span>
-            Sign out
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
       </div>

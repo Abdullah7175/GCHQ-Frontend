@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Outfit, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -12,6 +12,14 @@ export const metadata: Metadata = {
     icon: '/gchq-logo.png',
     apple: '/gchq-logo.png',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#0f7a45',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

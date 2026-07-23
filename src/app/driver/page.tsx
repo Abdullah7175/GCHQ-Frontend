@@ -395,21 +395,25 @@ export default function DriverApp() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="bg-primary text-on-primary p-4 shadow-md">
-        <div className="flex justify-between items-center max-w-lg mx-auto gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <BrandLogo size={44} />
+      <header className="bg-primary text-on-primary p-3 sm:p-4 shadow-md safe-area-pad">
+        <div className="flex justify-between items-start max-w-lg mx-auto gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <BrandLogo size={40} className="shrink-0" />
             <div className="min-w-0">
-              <h1 className="text-xl font-bold leading-none">GCHQ</h1>
-              <p className="text-[11px] opacity-90 mt-0.5">Green Corridor Headquarters</p>
-              <p className="text-sm opacity-90 truncate">{user?.name || getStoredUser()?.name} | {ambulance?.unitNumber || 'No unit'}</p>
-              <p className="text-[11px] opacity-80">
-                GPS {watchingLocation ? 'LIVE' : 'OFF'} · sync every 15s
-                {lastGpsOkAt ? ` · last sent ${new Date(lastGpsOkAt).toLocaleTimeString()}` : ''}
+              <h1 className="text-lg sm:text-xl font-bold leading-none">GCHQ</h1>
+              <p className="text-[10px] sm:text-[11px] opacity-90 mt-0.5 truncate">
+                {user?.name || getStoredUser()?.name} · {ambulance?.unitNumber || 'No unit'}
+              </p>
+              <p className="text-[10px] opacity-80 mt-0.5">
+                GPS {watchingLocation ? 'LIVE' : 'OFF'}
+                {lastGpsOkAt
+                  ? ` · ${new Date(lastGpsOkAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                  : ''}
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={async () => {
               await logout(
                 deviceLocation
@@ -418,21 +422,21 @@ export default function DriverApp() {
               );
               window.location.href = '/login';
             }}
-            className="text-sm opacity-80 shrink-0"
+            className="shrink-0 min-h-11 min-w-11 px-3 py-2 rounded-xl text-xs font-semibold bg-white/15 hover:bg-white/25 active:bg-white/30"
           >
             Logout
           </button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full space-y-4">
-        <div className="h-[280px] rounded-xl overflow-hidden border border-outline-variant relative">
+      <main className="flex-1 p-3 sm:p-4 max-w-lg mx-auto w-full space-y-4 pb-8">
+        <div className="h-[220px] sm:h-[280px] rounded-xl overflow-hidden border border-outline-variant relative">
           <OsmMap center={mapCenter} zoom={13} markers={markers} routes={routes} className="h-full w-full" />
           <div className="absolute top-2 left-2 z-[1000] glass-panel px-2 py-1 rounded text-[10px] font-bold text-primary">
             {currentPos ? 'YOUR LIVE LOCATION' : 'WAITING FOR GPS'}
           </div>
           {currentPos && (
-            <div className="absolute bottom-2 left-2 z-[1000] glass-panel px-2 py-1 rounded text-[10px] font-mono">
+            <div className="absolute bottom-2 left-2 right-2 z-[1000] glass-panel px-2 py-1 rounded text-[10px] font-mono truncate">
               {currentPos[0].toFixed(5)}, {currentPos[1].toFixed(5)}
             </div>
           )}

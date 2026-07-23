@@ -183,6 +183,16 @@ export const ADMIN_TABLE_COLUMNS: Record<string, AdminColumnDef[]> = {
         return '—';
       },
     },
+    {
+      key: 'distance',
+      label: 'Distance',
+      value: (i) => {
+        const m = i.routeDistanceMeters ?? i.totalDistanceMeters;
+        if (m == null || m === '') return '—';
+        const km = Number(m) / 1000;
+        return Number.isFinite(km) ? `${km.toFixed(1)} km` : '—';
+      },
+    },
     { key: 'etaMinutes', label: 'ETA', value: (i) => (i.etaMinutes != null ? `${i.etaMinutes}m` : '—') },
   ],
   'audit-logs': [

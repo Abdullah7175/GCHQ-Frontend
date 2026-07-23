@@ -36,7 +36,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
+    <div className="min-h-screen relative overflow-x-hidden flex items-center justify-center p-4 sm:p-6">
       <div
         className="absolute inset-0"
         style={{
@@ -60,18 +60,19 @@ export default function LoginPage() {
         }}
       />
 
-      <div className="relative w-full max-w-md animate-fade-in">
-        <div className="flex flex-col items-center mb-4 text-center">
-          <div>
-            <BrandLogo size={160} />
-          </div>
-          <h1 className="-mt-8 text-4xl font-bold tracking-tight text-white">GCHQ</h1>
-          <p className="text-sm text-emerald-100/80 mt-4 font-medium">
+      <div className="relative w-full max-w-md animate-fade-in py-4">
+        <div className="flex flex-col items-center mb-3 sm:mb-4 text-center">
+            <div>
+              <BrandLogo size={96} className="sm:hidden" />
+              <BrandLogo size={140} className="hidden sm:flex" />
+            </div>
+          <h1 className="-mt-4 sm:-mt-8 text-3xl sm:text-4xl font-bold tracking-tight text-white">GCHQ</h1>
+          <p className="text-xs sm:text-sm text-emerald-100/80 mt-2 sm:mt-4 font-medium px-2">
             Green Corridor Headquarters
           </p>
         </div>
 
-        <div className="rounded-3xl p-8 border border-white/15 bg-white/95 shadow-2xl backdrop-blur-xl">
+        <div className="rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-white/15 bg-white/95 shadow-2xl backdrop-blur-xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -81,7 +82,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all font-medium placeholder:text-slate-400"
+                className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-base sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all font-medium placeholder:text-slate-400"
                 placeholder="user@domain.pk"
                 required
                 autoComplete="username"
@@ -99,7 +100,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all font-medium placeholder:text-slate-400 pr-12"
+                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-base sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-600 transition-all font-medium placeholder:text-slate-400 pr-14"
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
@@ -109,9 +110,10 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-11 min-w-11 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none rounded-lg"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <span className="material-symbols-outlined text-[20px]">
+                  <span className="material-symbols-outlined text-[22px]">
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </span>
                 </button>
@@ -128,7 +130,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full text-white py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-70 flex items-center justify-center gap-2 mt-2"
+              className="w-full text-white py-3.5 min-h-12 rounded-xl text-sm font-bold transition-all disabled:opacity-70 flex items-center justify-center gap-2 mt-2"
               style={{
                 background: 'linear-gradient(180deg, #129a55, #0f7a45)',
                 boxShadow: '0 10px 24px rgba(15, 122, 69, 0.35)',
@@ -152,7 +154,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-white/45 mt-6 tracking-wide">
+        <p className="text-center text-[11px] text-white/45 mt-6 tracking-wide px-2">
           Authorized personnel only · Encrypted session
         </p>
       </div>

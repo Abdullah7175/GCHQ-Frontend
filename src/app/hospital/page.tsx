@@ -410,25 +410,25 @@ export default function HospitalDashboard() {
           )}
 
           <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0">
-            <section className="flex-[1.45] flex flex-col gap-6 min-w-[340px]">
-              <div className="dash-panel p-6">
-                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <section className="flex-[1.45] flex flex-col gap-6 min-w-0 w-full">
+              <div className="dash-panel p-4 sm:p-6">
+                <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                   <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">dashboard</span>
                     Ongoing Grid
                   </h4>
-                  <div className="flex gap-2 items-center">
+                  <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
                     {!soundReady && (
                       <button
                         type="button"
                         onClick={() => void unlockSound()}
-                        className="rounded-lg px-3 py-1.5 text-xs font-bold bg-amber-500 text-white hover:bg-amber-600"
+                        className="rounded-lg px-3 py-2 text-xs font-bold bg-amber-500 text-white hover:bg-amber-600 min-h-10"
                       >
                         Enable alert sound
                       </button>
                     )}
                     <select
-                      className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
+                      className="border border-outline-variant rounded-lg px-2 py-2 text-xs bg-white focus:outline-none min-h-10 flex-1 sm:flex-none"
                       value={filterTriage}
                       onChange={(e) => setFilterTriage(e.target.value)}
                     >
@@ -439,7 +439,7 @@ export default function HospitalDashboard() {
                     </select>
 
                     <select
-                      className="border border-outline-variant rounded-lg px-2 py-1 text-xs bg-white focus:outline-none"
+                      className="border border-outline-variant rounded-lg px-2 py-2 text-xs bg-white focus:outline-none min-h-10 flex-1 sm:flex-none"
                       value={filterIssue}
                       onChange={(e) => setFilterIssue(e.target.value)}
                     >
