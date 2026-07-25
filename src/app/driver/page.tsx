@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, cityQuery, getStoredUser, logout } from '@/lib/api';
 import { useAuthGuard, useSocket } from '@/lib/hooks';
 import { useCityContext } from '@/lib/city-context';
@@ -61,6 +61,8 @@ export default function DriverApp() {
   const [hospitalId, setHospitalId] = useState('');
   const [emergencyTypeId, setEmergencyTypeId] = useState('');
   const [triageCodeId, setTriageCodeId] = useState('');
+  const [hospitalSearch, setHospitalSearch] = useState('');
+  const [emergencySearch, setEmergencySearch] = useState('');
   const [hospitalChoiceConsent, setHospitalChoiceConsent] = useState<'pc' | 'ac' | ''>('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -342,6 +344,53 @@ export default function DriverApp() {
     }
   }
 
+  const filteredHospitals = useMemo(() => {
+    const q = hospitalSearch.trim().toLowerCase();
+    if (q.length < 3) return hospitals;
+    return hospitals.filter((h) => {
+      const haystack = `${h.name} ${h.address ?? ''}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [hospitals, hospitalSearch]);
+
+  const filteredEmergencyTypes = useMemo(() => {
+    const q = emergencySearch.trim().toLowerCase();
+    if (q.length < 3) return emergencyTypes;
+    const aliases: Record<string, string[]> = {
+      hea: ['heart', 'cardiac', 'cardio', 'myocardial'],
+      hear: ['heart', 'cardiac', 'cardio', 'myocardial'],
+      heart: ['heart', 'cardiac', 'cardio', 'myocardial'],
+      car: ['cardiac', 'cardio', 'myocardial'],
+      card: ['cardiac', 'cardio', 'myocardial'],
+      burn: ['burn', 'burns'],
+      traum: ['trauma'],
+      strok: ['stroke'],
+      pregn: ['obstetric', 'obstetrics', 'labor', 'labour'],
+      poison: ['poison', 'poisoning', 'overdose'],
+    };
+    const terms = new Set<string>([q]);
+    for (const [alias, expands] of Object.entries(aliases)) {
+      if (alias.startsWith(q) || q.startsWith(alias)) expands.forEach((e) => terms.add(e));
+    }
+    return emergencyTypes.filter((e) => {
+      const haystack = `${e.name} ${e.code}`.toLowerCase();
+      return [...terms].some((t) => haystack.includes(t));
+    });
+  }, [emergencyTypes, emergencySearch]);
+
+  // Keep selected values valid when the filtered list shrinks
+  useEffect(() => {
+    if (hospitalId && !filteredHospitals.some((h) => h.id === hospitalId) && hospitalSearch.trim().length >= 3) {
+      setHospitalId('');
+    }
+  }, [filteredHospitals, hospitalId, hospitalSearch]);
+
+  useEffect(() => {
+    if (emergencyTypeId && !filteredEmergencyTypes.some((e) => e.id === emergencyTypeId) && emergencySearch.trim().length >= 3) {
+      setEmergencyTypeId('');
+    }
+  }, [filteredEmergencyTypes, emergencyTypeId, emergencySearch]);
+
   if (!ready || cityLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!resolvedCityId) {
     return <div className="min-h-screen flex items-center justify-center text-on-surface-variant">No city assigned.</div>;
@@ -478,14 +527,24 @@ export default function DriverApp() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">1. Destination Hospital *</label>
+              <input
+                type="search"
+                value={hospitalSearch}
+                onChange={(e) => setHospitalSearch(e.target.value)}
+                placeholder="Search hospital (min 3 letters)…"
+                className="w-full border-2 border-outline-variant rounded-xl px-4 py-3 text-base focus:border-primary focus:outline-none bg-white mb-2"
+              />
               <select
                 value={hospitalId}
                 onChange={(e) => setHospitalId(e.target.value)}
                 className="w-full border-2 border-outline-variant rounded-xl px-4 py-4 text-lg focus:border-primary focus:outline-none bg-white"
               >
                 <option value="">Choose hospital...</option>
-                {hospitals.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                {filteredHospitals.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
+              {hospitalSearch.trim().length >= 3 && filteredHospitals.length === 0 && (
+                <p className="text-xs text-on-surface-variant mt-1">No hospitals match “{hospitalSearch.trim()}”.</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">2. Triage Code *</label>
@@ -500,14 +559,24 @@ export default function DriverApp() {
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">3. Emergency Type *</label>
+              <input
+                type="search"
+                value={emergencySearch}
+                onChange={(e) => setEmergencySearch(e.target.value)}
+                placeholder="Search emergency type (min 3 letters)…"
+                className="w-full border-2 border-outline-variant rounded-xl px-4 py-3 text-base focus:border-primary focus:outline-none bg-white mb-2"
+              />
               <select
                 value={emergencyTypeId}
                 onChange={(e) => setEmergencyTypeId(e.target.value)}
                 className="w-full border-2 border-outline-variant rounded-xl px-4 py-4 text-lg focus:border-primary focus:outline-none bg-white"
               >
                 <option value="">Select emergency type...</option>
-                {emergencyTypes.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                {filteredEmergencyTypes.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
+              {emergencySearch.trim().length >= 3 && filteredEmergencyTypes.length === 0 && (
+                <p className="text-xs text-on-surface-variant mt-1">No emergency types match “{emergencySearch.trim()}”.</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">4. Hospital choice consent *</label>

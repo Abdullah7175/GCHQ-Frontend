@@ -65,42 +65,65 @@ export function cityQuery(cityId?: string | null): string {
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const base = typeof window === 'undefined' ? BACKEND_URL : browserApiBase();
-  let res: Response;
-  try {
-    res = await fetch(`${base}${path}`, {
-      ...options,
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        ...options.headers,
-      },
-    });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Network error';
-    throw new Error(`Cannot reach API. (${message})`);
-  }
-  if (res.status === 401) {
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-      clearClientSession();
-      window.location.href = '/login';
+  const method = (options.method || 'GET').toUpperCase();
+  const retryable = method === 'GET' || method === 'HEAD';
+  const maxAttempts = retryable ? 3 : 1;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(`${base}${path}`, {
+        ...options,
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...options.headers,
+        },
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Network error';
+      lastError = new Error(`Cannot reach API. (${message})`);
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 400 * attempt));
+        continue;
+      }
+      throw lastError;
     }
-    throw new Error('Session expired — please sign in again');
+
+    if (res.status === 401) {
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        clearClientSession();
+        window.location.href = '/login';
+      }
+      throw new Error('Session expired — please sign in again');
+    }
+
+    // Transient DB / proxy failures — retry GETs so a dropped Postgres socket
+    // does not force a full page refresh.
+    if (retryable && (res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 400 * attempt));
+      continue;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: res.statusText }));
+      const message = Array.isArray(err.message) ? err.message.join(', ') : (err.message || res.statusText);
+      throw new Error(message || 'Request failed');
+    }
+    // DELETE / empty success bodies must not call res.json() — Nest returns 200 with no content
+    if (res.status === 204 || res.status === 205) return undefined as T;
+    const text = await res.text();
+    if (!text) return undefined as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return text as unknown as T;
+    }
   }
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    const message = Array.isArray(err.message) ? err.message.join(', ') : (err.message || res.statusText);
-    throw new Error(message || 'Request failed');
-  }
-  // DELETE / empty success bodies must not call res.json() — Nest returns 200 with no content
-  if (res.status === 204 || res.status === 205) return undefined as T;
-  const text = await res.text();
-  if (!text) return undefined as T;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return text as unknown as T;
-  }
+
+  throw lastError ?? new Error('Request failed');
 }
 
 export async function login(email: string, password: string) {
