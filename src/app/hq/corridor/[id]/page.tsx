@@ -186,7 +186,7 @@ export default function CorridorDetailPage() {
   return (
     <div className="h-screen flex flex-col overflow-hidden ops-shell">
       <TopNav active="/hq" />
-      <main className="flex-1 pt-14 sm:pt-16 flex flex-col md:flex-row overflow-hidden">
+      <main className="flex-1 min-h-0 pt-14 flex flex-col md:flex-row overflow-hidden">
         {/* Corridor info panel */}
         <section className="w-full md:w-[400px] lg:w-[440px] shrink-0 border-b md:border-b-0 md:border-r border-outline-variant bg-white/80 backdrop-blur-sm overflow-y-auto custom-scrollbar max-h-[48vh] md:max-h-none">
           <div className="p-3 sm:p-4 space-y-4">

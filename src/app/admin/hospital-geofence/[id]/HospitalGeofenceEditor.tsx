@@ -129,7 +129,7 @@ export default function HospitalGeofenceEditor() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
-  const drawControlRef = useRef<L.Control.Draw | null>(null);
+  const drawControlRef = useRef<any>(null);
   const hospitalMarkerRef = useRef<L.Marker | null>(null);
 
   const [hospital, setHospital] = useState<HospitalData | null>(null);
@@ -143,7 +143,7 @@ export default function HospitalGeofenceEditor() {
       map.removeControl(drawControlRef.current);
     }
     const hasShape = group.getLayers().length > 0;
-    drawControlRef.current = new L.Control.Draw({
+    drawControlRef.current = new (L.Control as any).Draw({
       position: 'topright',
       draw: {
         polygon: hasShape
@@ -226,19 +226,19 @@ export default function HospitalGeofenceEditor() {
 
         rebuildDrawControl(map, drawnItems);
 
-        map.on(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
-          const event = e as L.DrawEvents.Created;
+        const drawEvent = (L as any).Draw?.Event || {};
+        map.on(drawEvent.CREATED || 'draw:created', (e: any) => {
           drawnItems.clearLayers();
-          drawnItems.addLayer(event.layer);
+          drawnItems.addLayer(e.layer);
           rebuildDrawControl(map, drawnItems);
           setStatus('Fence drawn — drag handles to adjust, then Save.');
         });
 
-        map.on(L.Draw.Event.EDITED, () => {
+        map.on(drawEvent.EDITED || 'draw:edited', () => {
           setStatus('Fence updated — click Save to persist.');
         });
 
-        map.on(L.Draw.Event.DELETED, () => {
+        map.on(drawEvent.DELETED || 'draw:deleted', () => {
           rebuildDrawControl(map, drawnItems);
           setStatus('Fence removed from map — Save to apply or draw a new shape.');
         });

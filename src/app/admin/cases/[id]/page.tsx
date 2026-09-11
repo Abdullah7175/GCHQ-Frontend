@@ -78,7 +78,7 @@ export default function CaseDetailsPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <TopNav />
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 pt-20 pb-8">
         <div className="flex items-center gap-3 mb-5">
           <Link
             href="/admin"

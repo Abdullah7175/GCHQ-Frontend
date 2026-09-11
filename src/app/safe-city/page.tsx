@@ -249,7 +249,7 @@ export default function SafeCityDashboard() {
   return (
     <div className="h-screen flex flex-col overflow-hidden ops-shell">
       <TopNav active="/safe-city" />
-      <main className="flex-1 pt-14 sm:pt-16 flex flex-col md:flex-row overflow-hidden">
+      <main className="flex-1 min-h-0 pt-14 flex flex-col md:flex-row overflow-hidden">
         <section className="w-full md:w-[480px] lg:w-[520px] shrink-0 border-b md:border-b-0 md:border-r border-outline-variant bg-white/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto custom-scrollbar max-h-[45vh] md:max-h-none">
           <h2 className="text-xs font-bold uppercase text-primary mb-4 flex items-center gap-2 tracking-wider">
             <span className="material-symbols-outlined text-[16px]">route</span>

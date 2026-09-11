@@ -487,7 +487,7 @@ export default function AdminPage() {
 
         {/* ── Left sidebar ── */}
         <aside
-          className={`fixed md:static inset-y-0 left-0 z-40 w-64 md:w-52 shrink-0 flex flex-col overflow-y-auto pt-14 md:pt-0 transform transition-transform duration-200 ${
+          className={`fixed md:static inset-y-0 left-0 z-40 w-64 md:w-52 shrink-0 flex flex-col overflow-y-auto custom-scrollbar pt-14 md:pt-0 transform transition-transform duration-200 ${
             mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
           style={{ background: '#ffffff', borderRight: '1px solid #e5e7eb' }}
@@ -773,7 +773,7 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto custom-scrollbar">
                 <table className="data-grid">
                 <thead>
                   <tr>
@@ -899,13 +899,11 @@ export default function AdminPage() {
                   onClick={() => { setFormOpen(false); resetForm(); setSaveError(''); }}
                 />
                 <div
-                  className="fixed lg:static inset-y-0 right-0 z-50 w-full max-w-md lg:w-80 shrink-0 flex flex-col overflow-y-auto animate-fade-in pt-14 lg:pt-0"
-                  style={{ background: '#ffffff', borderLeft: '1px solid #e5e7eb' }}
+                  className="fixed lg:relative inset-y-0 right-0 z-50 w-full sm:w-[420px] lg:w-[460px] shrink-0 flex flex-col h-full bg-white shadow-2xl lg:shadow-none border-l border-gray-200 animate-fade-in pt-14 lg:pt-0 overflow-hidden"
                 >
                 {/* Form header */}
                 <div
-                  className="flex items-center justify-between px-5 py-4 shrink-0"
-                  style={{ borderBottom: '1px solid #f1f5f9' }}
+                  className="flex items-center justify-between px-5 py-4 shrink-0 bg-white border-b border-gray-100"
                 >
                   <div>
                     <h2 className="text-sm font-bold text-gray-900">
@@ -922,8 +920,8 @@ export default function AdminPage() {
                 </div>
 
                 {/* Form body */}
-                <form onSubmit={handleSave} className="flex-1 flex flex-col">
-                  <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+                <form onSubmit={handleSave} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto custom-scrollbar">
                     {saveError && (
                       <div className="px-3 py-2.5 rounded-lg text-xs text-red-700 font-medium flex items-center gap-2"
                         style={{ background: '#fee2e2' }}>
@@ -943,12 +941,14 @@ export default function AdminPage() {
                       <FormField label="Province">
                         <TextInput value={(form.province as string) || ''} onChange={(v) => setForm({ ...form, province: v })} placeholder="Sindh" />
                       </FormField>
-                      <FormField label="Map Center Latitude" hint="Safe City / HQ default map center">
-                        <TextInput type="number" value={form.mapCenterLat != null ? String(form.mapCenterLat) : ''} onChange={(v) => setForm({ ...form, mapCenterLat: v })} placeholder="24.8607" />
-                      </FormField>
-                      <FormField label="Map Center Longitude">
-                        <TextInput type="number" value={form.mapCenterLng != null ? String(form.mapCenterLng) : ''} onChange={(v) => setForm({ ...form, mapCenterLng: v })} placeholder="67.0011" />
-                      </FormField>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="Map Center Latitude" hint="Safe City / HQ default">
+                          <TextInput type="number" value={form.mapCenterLat != null ? String(form.mapCenterLat) : ''} onChange={(v) => setForm({ ...form, mapCenterLat: v })} placeholder="24.8607" />
+                        </FormField>
+                        <FormField label="Map Center Longitude">
+                          <TextInput type="number" value={form.mapCenterLng != null ? String(form.mapCenterLng) : ''} onChange={(v) => setForm({ ...form, mapCenterLng: v })} placeholder="67.0011" />
+                        </FormField>
+                      </div>
                       <FormField label="Map Zoom" hint="Typical 11–14">
                         <TextInput type="number" value={form.mapDefaultZoom != null ? String(form.mapDefaultZoom) : '12'} onChange={(v) => setForm({ ...form, mapDefaultZoom: v })} />
                       </FormField>
@@ -1575,7 +1575,7 @@ export default function AdminPage() {
                   </div>
 
                   {/* Form footer */}
-                  <div className="px-5 py-4 shrink-0 space-y-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <div className="px-5 py-4 shrink-0 space-y-2 bg-white/95 backdrop-blur-sm border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
                     <button type="submit" className="btn-primary w-full justify-center py-2.5 text-sm">
                       <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{editingId ? 'save' : 'add_circle'}</span>
                       {editingId ? 'Update Record' : 'Create Record'}
