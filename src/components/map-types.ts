@@ -63,6 +63,16 @@ export function resolveCityMapView(city?: {
   return { center: LAHORE_CENTER, zoom: 12 };
 }
 
+/** Canonical raster tiles. The {s}.tile.openstreetmap.org host is withdrawn by the tile usage policy. */
+export const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+export const OSM_TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+/**
+ * OSM rejects tile requests that omit Referer. This overrides a page-level
+ * Referrer-Policy of no-referrer / same-origin for the tile images only.
+ */
+export const OSM_TILE_REFERRER_POLICY = 'strict-origin-when-cross-origin' as const;
+
 export function fallbackPosition(index: number, center: [number, number] = LAHORE_CENTER): [number, number] {
   const angle = (index * 47) % 360;
   const rad = (angle * Math.PI) / 180;

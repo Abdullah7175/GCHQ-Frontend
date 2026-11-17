@@ -4,7 +4,14 @@ import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LAHORE_CENTER, MapMarker, MapRoute } from './map-types';
+import {
+  LAHORE_CENTER,
+  MapMarker,
+  MapRoute,
+  OSM_TILE_ATTRIBUTION,
+  OSM_TILE_REFERRER_POLICY,
+  OSM_TILE_URL,
+} from './map-types';
 import { createFleetIcon } from './map-icons';
 
 function MapViewSync({
@@ -81,8 +88,9 @@ export default function OsmMapInner({
       <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
         <MapViewSync center={center} zoom={zoom} fitKey={fitKey} fitPositions={fitPositions} />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={OSM_TILE_ATTRIBUTION}
+          url={OSM_TILE_URL}
+          referrerPolicy={OSM_TILE_REFERRER_POLICY}
         />
         {routes.map((route) => (
           <Polyline

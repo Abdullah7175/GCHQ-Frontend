@@ -10,6 +10,7 @@ import 'leaflet-draw';
 import { api } from '@/lib/api';
 import { useAuthGuard } from '@/lib/hooks';
 import { createFleetIcon } from '@/components/map-icons';
+import { OSM_TILE_ATTRIBUTION, OSM_TILE_REFERRER_POLICY, OSM_TILE_URL } from '@/components/map-types';
 
 type GeofenceShapeType = 'circle' | 'rectangle' | 'polygon';
 
@@ -202,8 +203,9 @@ export default function HospitalGeofenceEditor() {
         const map = L.map(mapContainerRef.current).setView([lat, lng], 17);
         mapRef.current = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap',
+        L.tileLayer(OSM_TILE_URL, {
+          attribution: OSM_TILE_ATTRIBUTION,
+          referrerPolicy: OSM_TILE_REFERRER_POLICY,
         }).addTo(map);
 
         hospitalMarkerRef.current = L.marker([lat, lng], {
