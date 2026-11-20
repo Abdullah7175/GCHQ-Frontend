@@ -6,7 +6,7 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 const plex = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-plex' });
 
 export const metadata: Metadata = {
-  title: 'GCHQ — Green Corridor Headquarters',
+  title: 'RAH E HAYAT — Green Corridor Headquarters',
   description: 'Green Corridor Headquarters — Mass Casualty & Ambulance Routing Command System',
   icons: {
     icon: '/gchq-logo.png',

@@ -118,7 +118,7 @@ export default function AdminPage() {
   const [saveError, setSaveError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [msgTestPhone, setMsgTestPhone] = useState('');
-  const [msgTestMessage, setMsgTestMessage] = useState('[GCHQ] Test — your messaging API is configured correctly.');
+  const [msgTestMessage, setMsgTestMessage] = useState('[RAH E HAYAT] Test — your messaging API is configured correctly.');
   const [msgTestLoading, setMsgTestLoading] = useState(false);
   const [msgTestResult, setMsgTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);

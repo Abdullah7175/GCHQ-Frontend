@@ -66,7 +66,7 @@ export default function LoginPage() {
               <BrandLogo size={96} className="sm:hidden" />
               <BrandLogo size={140} className="hidden sm:flex" />
             </div>
-          <h1 className="-mt-4 sm:-mt-8 text-3xl sm:text-4xl font-bold tracking-tight text-white">GCHQ</h1>
+          <h1 className="-mt-4 sm:-mt-8 text-3xl sm:text-4xl font-bold tracking-tight text-white">RAH E HAYAT</h1>
           <p className="text-xs sm:text-sm text-emerald-100/80 mt-2 sm:mt-4 font-medium px-2">
             Green Corridor Headquarters
           </p>

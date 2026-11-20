@@ -40,7 +40,7 @@ export function TopNav({ active }: { active?: string }) {
           <BrandLogo size={30} />
           <div className="flex items-center gap-2 min-w-0">
             <div>
-              <span className="text-sm font-bold text-slate-900 tracking-tight block leading-none">GCHQ</span>
+              <span className="text-sm font-bold text-slate-900 tracking-tight block leading-none">RAH E HAYAT</span>
               <span className="text-[9px] text-slate-400 font-medium hidden sm:block">Green Corridor Headquarters</span>
             </div>
             {portal && (

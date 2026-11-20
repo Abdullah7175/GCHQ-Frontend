@@ -17,7 +17,7 @@ export function BrandLogo({
     <div className={`flex items-center gap-2.5 ${className}`}>
       <Image
         src="/gchq-logo.png"
-        alt="GCHQ"
+        alt="RAH E HAYAT"
         width={1024}
         height={1536}
         style={{ width: size, height: 'auto' }}
@@ -26,7 +26,7 @@ export function BrandLogo({
       />
       {showWordmark && (
         <div className={wordmarkClassName}>
-          <div className="font-bold tracking-tight leading-none">GCHQ</div>
+          <div className="font-bold tracking-tight leading-none">RAH E HAYAT</div>
           <div className="text-[10px] font-medium opacity-70 leading-tight mt-0.5">
             Green Corridor Headquarters
           </div>

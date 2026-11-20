@@ -449,7 +449,7 @@ export default function DriverApp() {
           <div className="flex items-center gap-2.5 min-w-0">
             <BrandLogo size={40} className="shrink-0" />
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold leading-none">GCHQ</h1>
+              <h1 className="text-lg sm:text-xl font-bold leading-none">RAH E HAYAT</h1>
               <p className="text-[10px] sm:text-[11px] opacity-90 mt-0.5 truncate">
                 {user?.name || getStoredUser()?.name} · {ambulance?.unitNumber || 'No unit'}
               </p>
